@@ -66,7 +66,8 @@ export interface InstallManifest {
 export interface ManifestConfig {
   feedName: string;
   feedId: string;
-  githubFeedUrl: string;
+  /** Remote source URL the feed was replicated from. */
+  sourceUrl?: string;
 }
 
 /** Represents a workspace for multi-workspace support. */
@@ -83,14 +84,11 @@ export interface AppWithStatus extends AppPackage {
   upgradeAvailable: boolean;
 }
 
-/** Default feed URL for the official App Store. */
+/** Default feed URL for the official App Store feed source. */
 export const DEFAULT_FEED_URL = 'https://ni-kismet.github.io/systemlink-app-store/';
 
 /** Well-known feed name used for discovery. */
 export const FEED_NAME = 'SystemLink App Store';
 
-/** Well-known manifest file properties for File Service discovery. */
-export const MANIFEST_FILE_PROPERTIES = { appstore: 'manifest', version: '1' };
-
-/** Well-known manifest file name. */
-export const MANIFEST_FILE_NAME = 'systemlink-appstore-manifest.json';
+/** Well-known tag path where the install manifest is stored in the Tag Service. */
+export const MANIFEST_TAG_PATH = 'systemlink-app-store/manifest';

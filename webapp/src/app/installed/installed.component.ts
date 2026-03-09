@@ -20,7 +20,6 @@ interface InstalledEntry {
 export class InstalledComponent implements OnInit {
   entries: InstalledEntry[] = [];
   manifest: InstallManifest | null = null;
-  manifestFileId: string | null = null;
   feedId: string | null = null;
 
   hasPermission = true;
@@ -48,8 +47,7 @@ export class InstalledComponent implements OnInit {
         return;
       }
 
-      this.manifest = manifestResult.manifest;
-      this.manifestFileId = manifestResult.fileId;
+      this.manifest = manifestResult;
       this.feedId = this.manifest.config.feedId;
 
       // Load catalog to compare versions
@@ -87,7 +85,7 @@ export class InstalledComponent implements OnInit {
   }
 
   async upgrade(entry: InstalledEntry): Promise<void> {
-    if (!this.feedId || !entry.catalogPkg || !this.manifest || !this.manifestFileId || this.actionLoading) return;
+    if (!this.feedId || !entry.catalogPkg || !this.manifest || this.actionLoading) return;
     this.actionLoading = entry.packageName;
     try {
       this.manifest = await this.appStoreService.upgradeApp(
@@ -95,7 +93,6 @@ export class InstalledComponent implements OnInit {
         entry.catalogPkg,
         entry.installed,
         this.manifest,
-        this.manifestFileId,
       );
       entry.installed = this.manifest.installedApps[entry.packageName];
       entry.upgradeAvailable = false;
@@ -107,7 +104,7 @@ export class InstalledComponent implements OnInit {
   }
 
   async upgradeAll(): Promise<void> {
-    if (!this.feedId || !this.manifest || !this.manifestFileId) return;
+    if (!this.feedId || !this.manifest) return;
     this.upgradingAll = true;
     for (const entry of this.entries) {
       if (entry.upgradeAvailable && entry.catalogPkg) {
@@ -118,14 +115,13 @@ export class InstalledComponent implements OnInit {
   }
 
   async uninstall(entry: InstalledEntry): Promise<void> {
-    if (!this.manifest || !this.manifestFileId || this.actionLoading) return;
+    if (!this.manifest || this.actionLoading) return;
     this.actionLoading = entry.packageName;
     try {
       this.manifest = await this.appStoreService.uninstallApp(
         entry.packageName,
         entry.installed,
         this.manifest,
-        this.manifestFileId,
       );
       this.entries = this.entries.filter(e => e.packageName !== entry.packageName);
     } catch (e: any) {

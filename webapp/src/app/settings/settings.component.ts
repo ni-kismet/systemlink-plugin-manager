@@ -11,7 +11,6 @@ import { AppStoreService } from '../services/app-store.service';
 })
 export class SettingsComponent implements OnInit {
   manifest: InstallManifest | null = null;
-  manifestFileId: string | null = null;
 
   loading = true;
   refreshing = false;
@@ -27,8 +26,7 @@ export class SettingsComponent implements OnInit {
     try {
       const result = await this.appStoreService.findManifest();
       if (result) {
-        this.manifest = result.manifest;
-        this.manifestFileId = result.fileId;
+        this.manifest = result;
       }
     } catch (e: any) {
       this.error = e.message ?? 'Failed to load settings';
@@ -42,7 +40,7 @@ export class SettingsComponent implements OnInit {
   }
 
   get feedUrl(): string {
-    return this.manifest?.config.githubFeedUrl ?? '—';
+    return this.manifest?.config.sourceUrl ?? '—';
   }
 
   get feedId(): string {

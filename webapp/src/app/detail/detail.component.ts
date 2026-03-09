@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AppPackage, InstalledApp, InstallManifest, DEFAULT_FEED_URL } from '../models/app-store.models';
+// DEFAULT_FEED_URL is used only for createEmptyManifest (the source URL on first onboarding)
 import { AppStoreService } from '../services/app-store.service';
 import { formatBytes } from '../utils/semver';
 
@@ -14,7 +15,6 @@ export class AppDetailComponent implements OnInit {
   pkg: AppPackage | null = null;
   installed: InstalledApp | null = null;
   manifest: InstallManifest | null = null;
-  manifestFileId: string | null = null;
   feedId: string | null = null;
 
   hasPermission = true;
@@ -42,8 +42,7 @@ export class AppDetailComponent implements OnInit {
       // Load manifest
       const manifestResult = await this.appStoreService.findManifest();
       if (manifestResult) {
-        this.manifest = manifestResult.manifest;
-        this.manifestFileId = manifestResult.fileId;
+        this.manifest = manifestResult;
         this.feedId = this.manifest.config.feedId;
         this.installed = this.manifest.installedApps[packageName] ?? null;
       }
@@ -92,9 +91,7 @@ export class AppDetailComponent implements OnInit {
       this.manifest = await this.appStoreService.installApp(
         this.feedId,
         this.pkg,
-        '',
         this.manifest,
-        this.manifestFileId,
       );
       this.installed = this.manifest.installedApps[this.pkg.packageName] ?? null;
     } catch (e: any) {
@@ -105,7 +102,7 @@ export class AppDetailComponent implements OnInit {
   }
 
   async upgrade(): Promise<void> {
-    if (!this.feedId || !this.pkg || !this.installed || !this.manifest || !this.manifestFileId || this.actionLoading) return;
+    if (!this.feedId || !this.pkg || !this.installed || !this.manifest || this.actionLoading) return;
     this.actionLoading = true;
     this.error = '';
     try {
@@ -114,7 +111,6 @@ export class AppDetailComponent implements OnInit {
         this.pkg,
         this.installed,
         this.manifest,
-        this.manifestFileId,
       );
       this.installed = this.manifest.installedApps[this.pkg.packageName] ?? null;
     } catch (e: any) {
@@ -125,7 +121,7 @@ export class AppDetailComponent implements OnInit {
   }
 
   async uninstall(): Promise<void> {
-    if (!this.pkg || !this.installed || !this.manifest || !this.manifestFileId || this.actionLoading) return;
+    if (!this.pkg || !this.installed || !this.manifest || this.actionLoading) return;
     this.actionLoading = true;
     this.error = '';
     this.confirmUninstall = false;
@@ -134,7 +130,6 @@ export class AppDetailComponent implements OnInit {
         this.pkg.packageName,
         this.installed,
         this.manifest,
-        this.manifestFileId,
       );
       this.installed = null;
     } catch (e: any) {

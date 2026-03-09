@@ -41,8 +41,8 @@ export class OnboardingComponent {
     this.loading = true;
     this.error = '';
     try {
-      const manifest = this.appStoreService.createEmptyManifest(this.feedId, this.feedUrl);
-      await this.appStoreService.createManifest(manifest);
+      const manifest = this.appStoreService.createEmptyManifest(this.feedId, this.feedUrl.trim());
+      await this.appStoreService.saveManifest(manifest);
       this.step = 3;
     } catch (e: any) {
       this.error = `Manifest creation failed: ${e.message}`;

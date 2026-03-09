@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AppPackage, InstalledApp, InstallManifest, DEFAULT_FEED_URL } from '../models/app-store.models';
+// DEFAULT_FEED_URL is used only for createEmptyManifest (the source URL on first onboarding)
 import { AppStoreService } from '../services/app-store.service';
 
 @Component({
@@ -14,7 +15,6 @@ export class CatalogComponent implements OnInit {
   filteredPackages: AppPackage[] = [];
   installedApps: Record<string, InstalledApp> = {};
   manifest: InstallManifest | null = null;
-  manifestFileId: string | null = null;
   feedId: string | null = null;
 
   searchTerm = '';
@@ -43,8 +43,7 @@ export class CatalogComponent implements OnInit {
       // 2. Load manifest
       const manifestResult = await this.appStoreService.findManifest();
       if (manifestResult) {
-        this.manifest = manifestResult.manifest;
-        this.manifestFileId = manifestResult.fileId;
+        this.manifest = manifestResult;
         this.installedApps = this.manifest.installedApps;
         this.feedId = this.manifest.config.feedId;
       }
@@ -112,9 +111,7 @@ export class CatalogComponent implements OnInit {
       this.manifest = await this.appStoreService.installApp(
         this.feedId,
         pkg,
-        '',
         this.manifest,
-        this.manifestFileId,
       );
       this.installedApps = this.manifest.installedApps;
     } catch (e: any) {

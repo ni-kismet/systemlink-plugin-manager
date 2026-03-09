@@ -3,23 +3,20 @@ import {
   AppPackage,
   InstallManifest,
   InstalledApp,
-  DEFAULT_FEED_URL,
   FEED_NAME,
-  MANIFEST_FILE_NAME,
-  MANIFEST_FILE_PROPERTIES,
+  MANIFEST_TAG_PATH,
 } from '../models/app-store.models';
 
 // ── SDK imports ───────────────────────────────────────────────
 import { createClient as createFeedsClient, createConfig as createFeedsConfig } from 'nisystemlink-clients-ts/feeds/client';
 import {
   getNifeedV1Feeds,
-  getNifeedV1FeedsByFeedIdPackages,
   postNifeedV1ReplicateFeed,
   postNifeedV1FeedsByFeedIdCheckForUpdates,
   postNifeedV1FeedsByFeedIdApplyUpdates,
 } from 'nisystemlink-clients-ts/feeds';
-import { createClient as createFileClient, createConfig as createFileConfig } from 'nisystemlink-clients-ts/file-ingestion/client';
-import { upload, delete_ as deleteFile } from 'nisystemlink-clients-ts/file-ingestion';
+import { createClient as createTagClient, createConfig as createTagConfig } from 'nisystemlink-clients-ts/tags/client';
+import { createOrReplaceTagInWorkspace, updateTagCurrentValuesInWorkspace, getTagWithValueInWorkspace } from 'nisystemlink-clients-ts/tags';
 import { createClient as createWebAppClient, createConfig as createWebAppConfig } from 'nisystemlink-clients-ts/web-application/client';
 import { listWebapps as sdkListWebapps, createWebapp as sdkCreateWebapp, deleteWebapp as sdkDeleteWebapp } from 'nisystemlink-clients-ts/web-application';
 
@@ -36,12 +33,14 @@ export class AppStoreService {
   private feedsClient = createFeedsClient(
     createFeedsConfig({ baseUrl: this.origin, credentials: 'include' })
   );
-  private fileClient = createFileClient(
-    createFileConfig({ baseUrl: `${this.origin}/nifile`, credentials: 'include' })
+  private tagClient = createTagClient(
+    createTagConfig({ baseUrl: `${this.origin}/nitag`, credentials: 'include' })
   );
   private webAppClient = createWebAppClient(
     createWebAppConfig({ baseUrl: `${this.origin}/niapp/v1`, credentials: 'include' })
   );
+
+  private workspacePromise: Promise<string> | null = null;
 
   // ── Feed Service ──────────────────────────────────────────────
 
@@ -54,23 +53,15 @@ export class AppStoreService {
     return feed?.id ? { id: feed.id, name: feed.name! } : null;
   }
 
-  /** List all packages in a feed. */
+  /** List all packages in a feed by fetching and parsing the replicated Packages index. */
   async listPackages(feedId: string): Promise<AppPackage[]> {
-    const { data, error } = await getNifeedV1FeedsByFeedIdPackages({
-      client: this.feedsClient,
-      path: { feedId },
-    });
-    if (error) throw new Error(`Failed to list packages: ${JSON.stringify(error)}`);
-    const packages = data?.packages ?? [];
-    return packages
-      .filter(p => (p as any).userVisible !== false)
-      .map(p => this.mapPackage(p));
-  }
-
-  /** Get a single package by its feed-level package ID. */
-  async getPackage(packageId: string): Promise<AppPackage> {
-    const res = await this.get(`/nifeed/v1/packages/${encodeURIComponent(packageId)}`);
-    return this.mapPackage(res);
+    const url = `${this.origin}/nifeed/v1/feeds/${encodeURIComponent(feedId)}/files/Packages`;
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch Packages index: HTTP ${res.status}`);
+    const text = await res.text();
+    return this.parsePackagesIndex(text)
+      .filter(s => s['UserVisible'] !== 'no')
+      .map(s => this.mapStanza(s));
   }
 
   /** Download a package file (returns a Blob). */
@@ -119,11 +110,30 @@ export class AppStoreService {
 
   // ── WebApp Service ────────────────────────────────────────────
 
+  /** Resolve the workspace of the currently running webapp by reading the URL. */
+  async getWorkspace(): Promise<string> {
+    if (!this.workspacePromise) {
+      this.workspacePromise = (async () => {
+        try {
+          const match = window.location.href.match(/\/webapps\/([0-9a-f-]{36})\/content/);
+          if (!match) return '';
+          const res = await fetch(`${this.origin}/niapp/v1/webapps/${match[1]}`, { credentials: 'include' });
+          if (!res.ok) return '';
+          const data = await res.json();
+          return (data as any).workspace ?? '';
+        } catch {
+          return '';
+        }
+      })();
+    }
+    return this.workspacePromise;
+  }
+
   /** Create a new webapp. Returns the created webapp (with id). */
   async createWebapp(name: string, workspace: string): Promise<any> {
     const { data, error } = await sdkCreateWebapp({
       client: this.webAppClient,
-      body: { name, workspace },
+      body: { name, workspace, policyIds: [] },
     });
     if (error) throw new Error(`Failed to create webapp: ${JSON.stringify(error)}`);
     return data;
@@ -159,95 +169,56 @@ export class AppStoreService {
     return data;
   }
 
-  // ── File Service (manifest) ───────────────────────────────────
-
-  private readonly MANIFEST_CACHE_KEY = 'appstore_manifest_file_id';
+  // ── Tag Service (manifest) ────────────────────────────────────
 
   /**
-   * Find the install manifest file.
-   * Uses localStorage to cache the file ID across sessions.
-   *
-   * Note: POST /query-files with propertiesQuery reliably times out for custom (un-indexed)
-   * properties per the File Service spec. Instead we list all files (GET /files) and filter
-   * the `properties` map client-side — the metadata is returned inline so no extra downloads.
+   * Find the install manifest stored as a STRING tag in the Tag Service.
+   * Returns null if the tag does not exist or has no value yet.
    */
-  async findManifest(workspace?: string): Promise<{ fileId: string; manifest: InstallManifest } | null> {
-    // Fast path: cached file ID from a previous session
-    const cachedId = localStorage.getItem(this.MANIFEST_CACHE_KEY);
-    if (cachedId) {
-      const manifest = await this.downloadManifest(cachedId);
-      if (manifest?.config?.feedName) {
-        return { fileId: cachedId, manifest };
-      }
-      // Cache stale (file deleted or moved) — fall through to full search
-      localStorage.removeItem(this.MANIFEST_CACHE_KEY);
+  async findManifest(workspace?: string): Promise<InstallManifest | null> {
+    if (!workspace) {
+      workspace = await this.getWorkspace() || undefined;
     }
+    if (!workspace) return null;
 
-    // List all files sorted most-recently-updated first and filter properties client-side.
-    // The structured /query-files propertiesQuery times out on un-indexed custom properties.
-    const params = new URLSearchParams({
-      take: '1000',
-      orderBy: 'lastUpdatedTimestamp',
-      orderByDescending: 'true',
-      ...(workspace ? { workspace } : {}),
+    const { data, error } = await getTagWithValueInWorkspace({
+      client: this.tagClient,
+      path: { workspace, path: MANIFEST_TAG_PATH },
     });
-    const res = await fetch(
-      `${this.origin}/nifile/v1/service-groups/Default/files?${params}`,
-      { credentials: 'include' },
-    );
-    if (!res.ok) {
-      console.warn('Failed to list files for manifest search:', res.status);
-      return null;
-    }
-    const listData = await res.json();
-    for (const file of listData?.availableFiles ?? []) {
-      if (!file.id || file.properties?.['appstore'] !== 'manifest') continue;
-      const manifest = await this.downloadManifest(file.id);
-      if (manifest?.config?.feedName) {
-        localStorage.setItem(this.MANIFEST_CACHE_KEY, file.id);
-        return { fileId: file.id, manifest };
-      }
-    }
-
-    return null;
-  }
-
-  /** Download and parse a manifest file by ID. Returns null on any failure. */
-  private async downloadManifest(fileId: string): Promise<InstallManifest | null> {
+    if (error || !data?.current?.value?.value) return null;
     try {
-      const url = `${this.origin}/nifile/v1/service-groups/Default/files/${encodeURIComponent(fileId)}/data`;
-      const res = await fetch(url, { credentials: 'include' });
-      if (!res.ok) return null;
-      return res.json();
+      const manifest = JSON.parse(data.current.value.value) as InstallManifest;
+      if (!manifest?.config?.feedName) return null;
+      return manifest;
     } catch {
       return null;
     }
   }
 
-  /** Create a new manifest file in the File Service. */
-  async createManifest(manifest: InstallManifest): Promise<string> {
-    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
-    // The SDK's UploadData uses `metadata` as the form field for file properties JSON.
-    const { data, error } = await upload({
-      client: this.fileClient,
-      body: {
-        file: new File([blob], MANIFEST_FILE_NAME, { type: 'application/json' }),
-        metadata: JSON.stringify(MANIFEST_FILE_PROPERTIES),
-      },
-    });
-    if (error) throw new Error(`Failed to create manifest: ${JSON.stringify(error)}`);
-    // UploadResponse returns { uri: string } — extract the ID from the URI
-    const uri: string = (data as any)?.uri ?? '';
-    const fileId = uri.split('/').pop() ?? '';
-    if (fileId) localStorage.setItem(this.MANIFEST_CACHE_KEY, fileId);
-    return fileId;
-  }
+  /**
+   * Persist the manifest to the Tag Service (create or update).
+   * Uses createOrReplaceTagInWorkspace to upsert the tag metadata,
+   * then writes the JSON-serialised manifest as the current value.
+   */
+  async saveManifest(manifest: InstallManifest): Promise<void> {
+    const workspace = await this.getWorkspace();
+    if (!workspace) throw new Error('Cannot save manifest: workspace unknown');
 
-  /** Update an existing manifest file. */
-  async updateManifest(fileId: string, manifest: InstallManifest): Promise<void> {
-    // Delete old, create new (File Service doesn't support in-place update)
-    await deleteFile({ client: this.fileClient, path: { id: fileId } });
-    await this.createManifest(manifest);
+    // Upsert the tag metadata (idempotent PUT)
+    const { error: tagError } = await createOrReplaceTagInWorkspace({
+      client: this.tagClient,
+      path: { workspace, path: MANIFEST_TAG_PATH },
+      body: { path: MANIFEST_TAG_PATH, type: 'STRING', workspace },
+    });
+    if (tagError) throw new Error(`Failed to create manifest tag: ${JSON.stringify(tagError)}`);
+
+    // Write the JSON-serialised manifest as the current value
+    const { error: valueError } = await updateTagCurrentValuesInWorkspace({
+      client: this.tagClient,
+      path: { workspace, path: MANIFEST_TAG_PATH },
+      body: { value: { value: JSON.stringify(manifest), type: 'STRING' } },
+    });
+    if (valueError) throw new Error(`Failed to write manifest tag value: ${JSON.stringify(valueError)}`);
   }
 
   // ── Install / Upgrade / Uninstall ─────────────────────────────
@@ -256,13 +227,13 @@ export class AppStoreService {
   async installApp(
     feedId: string,
     pkg: AppPackage,
-    workspace: string,
     manifest: InstallManifest,
-    manifestFileId: string | null
   ): Promise<InstallManifest> {
-    // 1. Download .nipkg
-    const fileName = this.extractFileName(pkg.filename);
-    const nipkgBlob = await this.downloadPackageFile(feedId, fileName);
+    // 1. Resolve workspace and download .nipkg in parallel
+    const [workspace, nipkgBlob] = await Promise.all([
+      this.getWorkspace(),
+      this.downloadPackageFile(feedId, this.extractFileName(pkg.filename)),
+    ]);
 
     // 2. Create webapp
     const webapp = await this.createWebapp(pkg.displayName, workspace);
@@ -279,12 +250,7 @@ export class AppStoreService {
       installedAt: now,
       updatedAt: null,
     };
-
-    if (manifestFileId) {
-      await this.updateManifest(manifestFileId, manifest);
-    } else {
-      await this.createManifest(manifest);
-    }
+    await this.saveManifest(manifest);
 
     return manifest;
   }
@@ -295,7 +261,6 @@ export class AppStoreService {
     pkg: AppPackage,
     installed: InstalledApp,
     manifest: InstallManifest,
-    manifestFileId: string
   ): Promise<InstallManifest> {
     // 1. Download new .nipkg
     const fileName = this.extractFileName(pkg.filename);
@@ -310,7 +275,7 @@ export class AppStoreService {
       version: pkg.version,
       updatedAt: new Date().toISOString(),
     };
-    await this.updateManifest(manifestFileId, manifest);
+    await this.saveManifest(manifest);
 
     return manifest;
   }
@@ -320,11 +285,10 @@ export class AppStoreService {
     packageName: string,
     installed: InstalledApp,
     manifest: InstallManifest,
-    manifestFileId: string
   ): Promise<InstallManifest> {
     await this.deleteWebapp(installed.webappId);
     delete manifest.installedApps[packageName];
-    await this.updateManifest(manifestFileId, manifest);
+    await this.saveManifest(manifest);
     return manifest;
   }
 
@@ -336,33 +300,53 @@ export class AppStoreService {
     return res.json();
   }
 
-  private mapPackage(p: any): AppPackage {
-    const attrs = p.attributes ?? {};
+  /** Parse an RFC 822-style Packages index into an array of field maps. */
+  private parsePackagesIndex(text: string): Record<string, string>[] {
+    return text.split(/\n\n+/).filter(s => s.trim()).map(stanza => {
+      const fields: Record<string, string> = {};
+      let key: string | null = null;
+      for (const line of stanza.split('\n')) {
+        if ((line.startsWith(' ') || line.startsWith('\t')) && key) {
+          fields[key] += '\n' + line.slice(1);
+        } else {
+          const colon = line.indexOf(':');
+          if (colon > 0) {
+            key = line.substring(0, colon).trim();
+            fields[key] = line.substring(colon + 1).trim();
+          }
+        }
+      }
+      return fields;
+    });
+  }
+
+  /** Map a parsed Packages index stanza to an AppPackage. */
+  private mapStanza(s: Record<string, string>): AppPackage {
     return {
-      packageName: p.packageName ?? p.package ?? '',
-      version: p.version ?? '',
-      displayName: p.displayName ?? attrs.DisplayName ?? p.packageName ?? '',
-      description: p.description ?? '',
-      section: p.section ?? '',
-      maintainer: p.maintainer ?? '',
-      homepage: p.homepage ?? '',
-      icon: attrs.AppStoreIcon ?? '',
+      packageName: s['Package'] ?? '',
+      version: s['Version'] ?? s['DisplayVersion'] ?? '',
+      displayName: s['DisplayName'] ?? s['Package'] ?? '',
+      description: s['Description'] ?? '',
+      section: s['Section'] ?? '',
+      maintainer: s['Maintainer'] ?? '',
+      homepage: s['Homepage'] ?? '',
+      icon: s['AppStoreIcon'] ?? '',
       screenshots: [
-        attrs.AppStoreScreenshot1,
-        attrs.AppStoreScreenshot2,
-        attrs.AppStoreScreenshot3,
-      ].filter(Boolean),
-      category: attrs.AppStoreCategory ?? '',
-      type: attrs.AppStoreType ?? 'webapp',
-      author: attrs.AppStoreAuthor ?? '',
-      license: attrs.AppStoreLicense ?? '',
-      tags: attrs.AppStoreTags ?? '',
-      repo: attrs.AppStoreRepo ?? '',
-      minServerVersion: attrs.AppStoreMinServerVersion ?? '',
-      size: p.size ?? 0,
-      sha256: p.sha256 ?? '',
-      filename: p.fileName ?? '',
-      feedPackageId: p.id,
+        s['AppStoreScreenshot1'],
+        s['AppStoreScreenshot2'],
+        s['AppStoreScreenshot3'],
+      ].filter((v): v is string => !!v),
+      category: s['AppStoreCategory'] ?? '',
+      type: s['AppStoreType'] ?? 'webapp',
+      author: s['AppStoreAuthor'] ?? '',
+      license: s['AppStoreLicense'] ?? '',
+      tags: s['AppStoreTags'] ?? '',
+      repo: s['AppStoreRepo'] ?? '',
+      minServerVersion: s['AppStoreMinServerVersion'] ?? '',
+      size: s['Size'] ? parseInt(s['Size'], 10) : 0,
+      sha256: s['SHA256'] ?? '',
+      filename: s['Filename'] ?? '',
+      feedPackageId: undefined,
     };
   }
 
@@ -377,13 +361,13 @@ export class AppStoreService {
   }
 
   /** Create a default empty manifest. */
-  createEmptyManifest(feedId: string, feedUrl: string): InstallManifest {
+  createEmptyManifest(feedId: string, sourceUrl?: string): InstallManifest {
     return {
       version: 1,
       config: {
         feedName: FEED_NAME,
         feedId,
-        githubFeedUrl: feedUrl,
+        ...(sourceUrl ? { sourceUrl } : {}),
       },
       installedApps: {},
     };
