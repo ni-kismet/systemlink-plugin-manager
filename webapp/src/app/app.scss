@@ -1,0 +1,38 @@
+:host {
+  display: block;
+  height: 100vh;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--ni-nimble-border-color, #e0e0e0);
+  background: var(--ni-nimble-header-background-color, #f5f5f5);
+}
+
+.app-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  margin-right: 16px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 4px;
+}
+
+.app-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 24px;
+}

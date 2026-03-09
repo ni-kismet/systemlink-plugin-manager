@@ -1,0 +1,21 @@
+<nimble-theme-provider theme="light">
+  <div class="app-shell">
+    <nav class="app-nav">
+      <h1 class="app-title">App Store</h1>
+      <div class="nav-links">
+        <nimble-anchor-button appearance="ghost" nimbleRouterLink="/catalog" routerLinkActive="active">
+          Catalog
+        </nimble-anchor-button>
+        <nimble-anchor-button appearance="ghost" nimbleRouterLink="/installed" routerLinkActive="active">
+          Installed
+        </nimble-anchor-button>
+        <nimble-anchor-button appearance="ghost" nimbleRouterLink="/settings" routerLinkActive="active">
+          Settings
+        </nimble-anchor-button>
+      </div>
+    </nav>
+    <main class="app-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</nimble-theme-provider>

@@ -1,0 +1,27 @@
+webapp/.playwright-cli/
+
+# Node and npm
+node_modules/
+.npm/
+.pnpm-store/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build and test output
+dist/
+build/
+coverage/
+out/
+.angular/
+
+# Environment
+.env
+.env.*.local
+
+# Python virtual environments
+.venv/
+
+# Logs and OS files
+*.log
+.DS_Store

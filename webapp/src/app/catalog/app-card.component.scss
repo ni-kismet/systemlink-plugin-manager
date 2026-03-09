@@ -1,0 +1,109 @@
+.app-card {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--ni-nimble-border-color, #e0e0e0);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+  background: var(--ni-nimble-header-background-color, #fff);
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  }
+}
+
+.card-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+}
+
+.icon-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.icon-placeholder {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 600;
+  color: #fff;
+  background: #0d6efd;
+  border-radius: 4px;
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upgrade-badge,
+.installed-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.upgrade-badge {
+  background: #0d6efd;
+  color: #fff;
+}
+
+.installed-badge {
+  background: #e8e8e8;
+  color: #333;
+}
+
+.card-author {
+  font-size: 12px;
+  color: #666;
+}
+
+.card-description {
+  font-size: 13px;
+  color: #444;
+  line-height: 1.4;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.card-category {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+}
+
+.card-version {
+  font-size: 11px;
+  color: #888;
+}

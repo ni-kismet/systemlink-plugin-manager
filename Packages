@@ -1,22 +1,22 @@
-Architecture: windows_all
-Description: A dashboard for monitoring asset health, calibration status, and utilization across your SystemLink-managed fleet. Displays key metrics in a card-based layout with filtering by workspace and asset group.
-DisplayName: Asset Health Dashboard
-DisplayVersion: 1.0.0
-Filename: https://github.com/ni-kismet/systemlink-app-store/releases/download/example-asset-dashboard-v1.0.0/example-asset-dashboard_1.0.0_windows_all.nipkg
-Homepage: https://github.com/ni/systemlink-app-store
+Architecture: all
+Description: A curated marketplace webapp for discovering, installing, upgrading, and removing SystemLink web applications from a replicated package feed.
+DisplayName: SystemLink App Store
+DisplayVersion: 0.1.0
+Filename: https://github.com/ni-kismet/systemlink-app-store/releases/download/systemlink-app-store-v0.1.0/systemlink-app-store_0.1.0_all.nipkg
+Homepage: https://github.com/ni-kismet/systemlink-app-store
 MD5sum: 
 Maintainer: NI App Store <appstore@ni.com>
-Package: example-asset-dashboard
+Package: systemlink-app-store
 Section: WebApps
 SHA256: 
 Size: 0
 UserVisible: yes
-Version: 1.0.0
+Version: 0.1.0
 AppStoreAuthor: NI
-AppStoreCategory: Dashboard
-AppStoreIcon: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiB2aWV3Qm94PSIwIDAgMTI4IDEyOCI+CiAgPHJlY3Qgd2lkdGg9IjEyOCIgaGVpZ2h0PSIxMjgiIHJ4PSIxNiIgZmlsbD0iIzBENkVGRCIvPgogIDxyZWN0IHg9IjE2IiB5PSI1NiIgd2lkdGg9IjI0IiBoZWlnaHQ9IjU2IiByeD0iNCIgZmlsbD0id2hpdGUiLz4KICA8cmVjdCB4PSI1MiIgeT0iMzIiIHdpZHRoPSIyNCIgaGVpZ2h0PSI4MCIgcng9IjQiIGZpbGw9IndoaXRlIi8+CiAgPHJlY3QgeD0iODgiIHk9IjE2IiB3aWR0aD0iMjQiIGhlaWdodD0iOTYiIHJ4PSI0IiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K
+AppStoreCategory: Administration
+AppStoreIcon: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiB2aWV3Qm94PSIwIDAgMTI4IDEyOCI+CiAgPHJlY3Qgd2lkdGg9IjEyOCIgaGVpZ2h0PSIxMjgiIHJ4PSIyMCIgZmlsbD0iIzBmMTcyYSIvPgogIDxyZWN0IHg9IjE4IiB5PSIyNCIgd2lkdGg9IjkyIiBoZWlnaHQ9IjgwIiByeD0iMTIiIGZpbGw9IiNmOGZhZmMiLz4KICA8cGF0aCBkPSJNMzggNTBoNTIiIHN0cm9rZT0iIzBmMTcyYSIgc3Ryb2tlLXdpZHRoPSI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cGF0aCBkPSJNMzggNjZoMzYiIHN0cm9rZT0iIzBmMTcyYSIgc3Ryb2tlLXdpZHRoPSI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cGF0aCBkPSJNODQgNzhsMTAgMTAgMTgtMTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzI1NjNlYiIgc3Ryb2tlLXdpZHRoPSI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICA8cmVjdCB4PSIzMCIgeT0iMTIiIHdpZHRoPSI2OCIgaGVpZ2h0PSIxOCIgcng9IjkiIGZpbGw9IiMyNTYzZWIiLz4KPC9zdmc+
 AppStoreLicense: MIT
 AppStoreMinServerVersion: 2024 Q4
-AppStoreRepo: https://github.com/ni/systemlink-app-store
-AppStoreTags: assets,calibration,dashboard,monitoring,health
+AppStoreRepo: https://github.com/ni-kismet/systemlink-app-store
+AppStoreTags: app-store,catalog,packages,systemlink,webapp
 AppStoreType: webapp

@@ -1,0 +1,103 @@
+<div *ngIf="loading" class="loading-container">
+  <nimble-spinner></nimble-spinner>
+  <span>Loading…</span>
+</div>
+
+<nimble-banner *ngIf="error" severity="error" [open]="true">
+  {{ error }}
+</nimble-banner>
+
+<ng-container *ngIf="!loading && pkg">
+  <nimble-breadcrumb>
+    <nimble-breadcrumb-item (click)="goBack()" style="cursor:pointer">Catalog</nimble-breadcrumb-item>
+    <nimble-breadcrumb-item>{{ pkg.displayName }}</nimble-breadcrumb-item>
+  </nimble-breadcrumb>
+
+  <app-permission-banner [hasPermission]="hasPermission"></app-permission-banner>
+
+  <div class="detail-layout">
+    <div class="detail-header">
+      <div class="header-icon">
+        <img *ngIf="pkg.icon" [src]="pkg.icon" alt="" class="pkg-icon" />
+        <div *ngIf="!pkg.icon" class="icon-placeholder">{{ pkg.displayName.charAt(0) }}</div>
+      </div>
+      <div class="header-info">
+        <h2 class="pkg-name">{{ pkg.displayName }}</h2>
+        <span class="pkg-author">{{ pkg.author }}</span>
+        <span class="pkg-version">v{{ pkg.version }}</span>
+      </div>
+      <div class="header-actions" *ngIf="hasPermission">
+        <nimble-button *ngIf="!installed" appearance="outline" (click)="install()" [disabled]="actionLoading">
+          {{ actionLoading ? 'Installing…' : 'Install' }}
+        </nimble-button>
+        <nimble-button *ngIf="installed && upgradeAvailable" appearance="outline" (click)="upgrade()" [disabled]="actionLoading">
+          {{ actionLoading ? 'Upgrading…' : 'Upgrade' }}
+        </nimble-button>
+        <nimble-button *ngIf="installed" appearance="ghost" (click)="confirmUninstall = true" [disabled]="actionLoading">
+          Uninstall
+        </nimble-button>
+      </div>
+    </div>
+
+    <div class="detail-body">
+      <div class="detail-description">
+        <h3>Description</h3>
+        <p class="description-text">{{ pkg.description }}</p>
+
+        <div *ngIf="pkg.screenshots.length > 0" class="screenshots">
+          <h3>Screenshots</h3>
+          <div class="screenshot-grid">
+            <img *ngFor="let ss of pkg.screenshots" [src]="ss" alt="Screenshot" class="screenshot-img" />
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-sidebar">
+        <h3>Details</h3>
+        <dl class="meta-list">
+          <dt>Category</dt>
+          <dd>{{ pkg.category || '—' }}</dd>
+          <dt>Type</dt>
+          <dd>{{ pkg.type }}</dd>
+          <dt>License</dt>
+          <dd>{{ pkg.license || '—' }}</dd>
+          <dt>Size</dt>
+          <dd>{{ formattedSize }}</dd>
+          <dt>Min Server</dt>
+          <dd>{{ pkg.minServerVersion || '—' }}</dd>
+          <dt>Tags</dt>
+          <dd>{{ pkg.tags || '—' }}</dd>
+        </dl>
+
+        <div *ngIf="pkg.homepage" class="meta-link">
+          <a [href]="pkg.homepage" target="_blank" rel="noopener noreferrer">Homepage</a>
+        </div>
+        <div *ngIf="pkg.repo" class="meta-link">
+          <a [href]="pkg.repo" target="_blank" rel="noopener noreferrer">Source Repository</a>
+        </div>
+
+        <div *ngIf="installed" class="installed-info">
+          <h3>Installation</h3>
+          <dl class="meta-list">
+            <dt>Installed Version</dt>
+            <dd>v{{ installed.version }}</dd>
+            <dt>Installed At</dt>
+            <dd>{{ installed.installedAt | date:'medium' }}</dd>
+            <dt *ngIf="installed.updatedAt">Last Updated</dt>
+            <dd *ngIf="installed.updatedAt">{{ installed.updatedAt | date:'medium' }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Uninstall confirmation dialog -->
+  <nimble-dialog *ngIf="confirmUninstall">
+    <h3>Confirm Uninstall</h3>
+    <p>Are you sure you want to uninstall <strong>{{ pkg.displayName }}</strong>?</p>
+    <div class="dialog-actions">
+      <nimble-button appearance="ghost" (click)="confirmUninstall = false">Cancel</nimble-button>
+      <nimble-button appearance="outline" (click)="uninstall()">Uninstall</nimble-button>
+    </div>
+  </nimble-dialog>
+</ng-container>

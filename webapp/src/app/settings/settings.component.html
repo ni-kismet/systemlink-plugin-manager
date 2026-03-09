@@ -1,0 +1,48 @@
+<h2>Settings</h2>
+
+<div *ngIf="loading" class="loading-container">
+  <nimble-spinner></nimble-spinner>
+  <span>Loading settings…</span>
+</div>
+
+<nimble-banner *ngIf="error" severity="error" [open]="true">
+  {{ error }}
+</nimble-banner>
+
+<nimble-banner *ngIf="refreshResult" severity="information" [open]="true">
+  {{ refreshResult }}
+</nimble-banner>
+
+<div *ngIf="!loading && manifest" class="settings-content">
+  <section class="settings-section">
+    <h3>Feed Configuration</h3>
+    <dl class="settings-list">
+      <dt>Feed Name</dt>
+      <dd>{{ feedName }}</dd>
+      <dt>Feed ID</dt>
+      <dd class="mono">{{ feedId }}</dd>
+      <dt>Source URL</dt>
+      <dd><a [href]="feedUrl" target="_blank" rel="noopener noreferrer">{{ feedUrl }}</a></dd>
+      <dt>Installed Apps</dt>
+      <dd>{{ installedCount }}</dd>
+    </dl>
+
+    <nimble-button appearance="outline" (click)="refreshFeed()" [disabled]="refreshing">
+      {{ refreshing ? 'Refreshing…' : 'Refresh Feed' }}
+    </nimble-button>
+    <p class="hint">
+      Checks the source feed for updated packages and applies any available updates.
+    </p>
+  </section>
+
+  <section class="settings-section">
+    <h3>About</h3>
+    <p>SystemLink App Store — curated marketplace for SystemLink custom web applications.</p>
+    <p class="hint">Manifest version: {{ manifest.version }}</p>
+  </section>
+</div>
+
+<div *ngIf="!loading && !manifest" class="empty-state">
+  <p>No configuration found. Please complete the onboarding wizard.</p>
+  <nimble-button appearance="outline" (click)="router.navigate(['/onboarding'])">Start Onboarding</nimble-button>
+</div>

@@ -102,15 +102,21 @@ def validate_manifest(manifest: dict, submission_dir: Path) -> list[str]:
 
     desc = manifest.get("description", "")
     if len(desc) < 20:
-        errors.append(f"[{name}] Description must be >= 20 characters (got {len(desc)})")
+        errors.append(
+            f"[{name}] Description must be >= 20 characters (got {len(desc)})"
+        )
 
     section = manifest.get("section", "")
     if section and section not in VALID_SECTIONS:
-        errors.append(f"[{name}] Invalid section: {section!r} (allowed: {VALID_SECTIONS})")
+        errors.append(
+            f"[{name}] Invalid section: {section!r} (allowed: {VALID_SECTIONS})"
+        )
 
     app_type = manifest.get("appStoreType", "")
     if app_type and app_type not in VALID_TYPES:
-        errors.append(f"[{name}] Invalid appStoreType: {app_type!r} (allowed: {VALID_TYPES})")
+        errors.append(
+            f"[{name}] Invalid appStoreType: {app_type!r} (allowed: {VALID_TYPES})"
+        )
 
     return errors
 
@@ -148,13 +154,13 @@ def build_stanza(manifest: dict, submission_dir: Path, repo_url: str) -> str:
         size = 0
         sha256 = ""
         md5 = ""
-        nipkg_filename = f"{pkg}_{version}_windows_all.nipkg"
+        nipkg_filename = f"{pkg}_{version}_all.nipkg"
 
     # Construct Filename URL pointing to GitHub Release asset
     filename_url = f"{repo_url}/releases/download/{pkg}-v{version}/{nipkg_filename}"
 
     lines = [
-        f"Architecture: windows_all",
+        f"Architecture: all",
         f"Description: {manifest['description']}",
         f"DisplayName: {manifest['displayName']}",
         f"DisplayVersion: {version}",
@@ -215,11 +221,13 @@ def get_repo_url(args_repo_url: str | None) -> str:
     if gh_repo:
         return f"https://github.com/{gh_repo}"
 
-    return "https://github.com/ni/systemlink-app-store"
+    return "https://github.com/ni-kismet/systemlink-app-store"
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Rebuild Packages index from submissions/")
+    parser = argparse.ArgumentParser(
+        description="Rebuild Packages index from submissions/"
+    )
     parser.add_argument(
         "--repo-url",
         help="GitHub repository URL for constructing release asset URLs",
@@ -243,7 +251,9 @@ def main() -> int:
     seen_packages: dict[str, str] = {}  # package name -> submission dir name
 
     submission_dirs = sorted(
-        d for d in SUBMISSIONS_DIR.iterdir() if d.is_dir() and (d / "manifest.json").is_file()
+        d
+        for d in SUBMISSIONS_DIR.iterdir()
+        if d.is_dir() and (d / "manifest.json").is_file()
     )
 
     for submission_dir in submission_dirs:
@@ -252,7 +262,9 @@ def main() -> int:
             with open(manifest_path) as f:
                 manifest = json.load(f)
         except (json.JSONDecodeError, OSError) as e:
-            all_errors.append(f"[{submission_dir.name}] Failed to read manifest.json: {e}")
+            all_errors.append(
+                f"[{submission_dir.name}] Failed to read manifest.json: {e}"
+            )
             continue
 
         errors = validate_manifest(manifest, submission_dir)

@@ -13,10 +13,16 @@ permissions:
 
 jobs:
   publish:
-    name: Create GitHub Release with .nipkg
+    name: Build and release webapp package
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
 
       - name: Read manifest
         id: manifest
@@ -34,13 +40,28 @@ jobs:
           echo "display_name=$DISPLAY_NAME" >> "$GITHUB_OUTPUT"
           echo "tag=${PACKAGE}-v${VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Find .nipkg file
+      - name: Install webapp dependencies
+        run: npm ci
+        working-directory: webapp
+
+      - name: Build webapp
+        run: npm run build
+        working-directory: webapp
+
+      - name: Package webapp as .nipkg
         id: nipkg
         run: |
-          DIR="submissions/${{ inputs.submission }}"
-          NIPKG=$(find "$DIR" -name '*.nipkg' -maxdepth 1 | head -1)
+          rm -rf webapp/dist/nipkg
+          npx -y @ni-kismet/sl-webapp-nipkg@0.3.0 build \
+            --build-dir webapp/dist/webapp/browser \
+            --name "${{ steps.manifest.outputs.package }}" \
+            --version "${{ steps.manifest.outputs.version }}" \
+            --description "$(jq -r '.description' submissions/${{ inputs.submission }}/manifest.json)" \
+            --maintainer "$(jq -r '.maintainer' submissions/${{ inputs.submission }}/manifest.json)" \
+            --output-dir webapp/dist/nipkg
+          NIPKG=$(find webapp/dist/nipkg -maxdepth 1 -name '*.nipkg' | head -1)
           if [ -z "$NIPKG" ]; then
-            echo "✗ No .nipkg file found in $DIR" >&2
+            echo "✗ Packaging did not produce a .nipkg file" >&2
             exit 1
           fi
           echo "path=$NIPKG" >> "$GITHUB_OUTPUT"
@@ -50,11 +71,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ steps.manifest.outputs.tag }}" \
-            "${{ steps.nipkg.outputs.path }}" \
-            --title "${{ steps.manifest.outputs.display_name }} v${{ steps.manifest.outputs.version }}" \
-            --notes "Release of ${{ steps.manifest.outputs.display_name }} version ${{ steps.manifest.outputs.version }}" \
-            --latest=false
+          if gh release view "${{ steps.manifest.outputs.tag }}" >/dev/null 2>&1; then
+            gh release upload "${{ steps.manifest.outputs.tag }}" \
+              "${{ steps.nipkg.outputs.path }}" \
+              --clobber
+          else
+            gh release create "${{ steps.manifest.outputs.tag }}" \
+              "${{ steps.nipkg.outputs.path }}" \
+              --title "${{ steps.manifest.outputs.display_name }} v${{ steps.manifest.outputs.version }}" \
+              --notes "Release of ${{ steps.manifest.outputs.display_name }} version ${{ steps.manifest.outputs.version }}" \
+              --latest=false
+          fi
 
       - name: Trigger index rebuild
         env:

@@ -1,0 +1,37 @@
+<app-permission-banner [hasPermission]="hasPermission"></app-permission-banner>
+
+<div class="catalog-toolbar">
+  <nimble-text-field
+    placeholder="Search apps…"
+    [value]="searchTerm"
+    (input)="onSearchChange($any($event).target.value)">
+  </nimble-text-field>
+
+  <nimble-select (change)="onCategoryChange($any($event).target.value)">
+    <nimble-list-option [value]="''">All Categories</nimble-list-option>
+    <nimble-list-option *ngFor="let cat of categories" [value]="cat">{{ cat }}</nimble-list-option>
+  </nimble-select>
+</div>
+
+<div *ngIf="loading" class="loading-container">
+  <nimble-spinner></nimble-spinner>
+  <span>Loading catalog…</span>
+</div>
+
+<nimble-banner *ngIf="error" severity="error" [open]="true">
+  {{ error }}
+</nimble-banner>
+
+<div *ngIf="!loading && !error" class="app-grid">
+  <app-card
+    *ngFor="let pkg of filteredPackages"
+    [pkg]="pkg"
+    [installed]="isInstalled(pkg)"
+    [upgradeAvailable]="hasUpgrade(pkg)"
+    (selected)="openDetail($event)">
+  </app-card>
+
+  <div *ngIf="filteredPackages.length === 0" class="empty-state">
+    <p>No apps found matching your search criteria.</p>
+  </div>
+</div>

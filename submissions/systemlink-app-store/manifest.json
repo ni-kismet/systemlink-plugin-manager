@@ -1,0 +1,16 @@
+{
+  "package": "systemlink-app-store",
+  "version": "0.1.0",
+  "displayName": "SystemLink App Store",
+  "description": "A curated marketplace webapp for discovering, installing, upgrading, and removing SystemLink web applications from a replicated package feed.",
+  "section": "WebApps",
+  "maintainer": "NI App Store <appstore@ni.com>",
+  "homepage": "https://github.com/ni-kismet/systemlink-app-store",
+  "license": "MIT",
+  "appStoreCategory": "Administration",
+  "appStoreType": "webapp",
+  "appStoreAuthor": "NI",
+  "appStoreTags": "app-store,catalog,packages,systemlink,webapp",
+  "appStoreRepo": "https://github.com/ni-kismet/systemlink-app-store",
+  "appStoreMinServerVersion": "2024 Q4"
+}

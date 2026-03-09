@@ -1,0 +1,58 @@
+<app-permission-banner [hasPermission]="hasPermission"></app-permission-banner>
+
+<div class="installed-header">
+  <h2>Installed Apps</h2>
+  <nimble-button
+    *ngIf="upgradesAvailable > 0 && hasPermission"
+    appearance="outline"
+    (click)="upgradeAll()"
+    [disabled]="upgradingAll">
+    {{ upgradingAll ? 'Upgrading…' : 'Upgrade All (' + upgradesAvailable + ')' }}
+  </nimble-button>
+</div>
+
+<div *ngIf="loading" class="loading-container">
+  <nimble-spinner></nimble-spinner>
+  <span>Loading installed apps…</span>
+</div>
+
+<nimble-banner *ngIf="error" severity="error" [open]="true">
+  {{ error }}
+</nimble-banner>
+
+<div *ngIf="!loading && entries.length === 0 && !error" class="empty-state">
+  <p>No apps installed yet.</p>
+  <nimble-button appearance="outline" (click)="router.navigate(['/catalog'])">Browse Catalog</nimble-button>
+</div>
+
+<div *ngIf="!loading" class="installed-list">
+  <div *ngFor="let entry of entries" class="installed-row" (click)="openDetail(entry)">
+    <div class="row-info">
+      <span class="row-name">{{ entry.catalogPkg?.displayName ?? entry.packageName }}</span>
+      <span class="row-version">
+        v{{ entry.installed.version }}
+        <span *ngIf="entry.upgradeAvailable && entry.catalogPkg" class="upgrade-badge">
+          → v{{ entry.catalogPkg.version }}
+        </span>
+      </span>
+      <span class="row-meta">
+        {{ entry.installed.type }} · Installed {{ entry.installed.installedAt | date:'mediumDate' }}
+      </span>
+    </div>
+    <div class="row-actions" *ngIf="hasPermission">
+      <nimble-button
+        *ngIf="entry.upgradeAvailable"
+        appearance="outline"
+        (click)="upgrade(entry); $event.stopPropagation()"
+        [disabled]="actionLoading === entry.packageName">
+        Upgrade
+      </nimble-button>
+      <nimble-button
+        appearance="ghost"
+        (click)="uninstall(entry); $event.stopPropagation()"
+        [disabled]="actionLoading === entry.packageName">
+        Uninstall
+      </nimble-button>
+    </div>
+  </div>
+</div>

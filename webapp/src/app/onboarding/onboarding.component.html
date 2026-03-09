@@ -1,0 +1,66 @@
+<div class="onboarding-container">
+  <div class="onboarding-card">
+    <h2>Welcome to the SystemLink App Store</h2>
+
+    <nimble-banner *ngIf="error" severity="error" [open]="true">
+      {{ error }}
+    </nimble-banner>
+
+    <!-- Step 1: Connect Feed -->
+    <section class="step" [class.active]="step === 1" [class.done]="step > 1">
+      <div class="step-header">
+        <span class="step-number" [class.completed]="step > 1">1</span>
+        <span class="step-title">Connect to the App Store feed</span>
+      </div>
+      <div *ngIf="step === 1" class="step-body">
+        <p>
+          The App Store needs to replicate the package feed from GitHub
+          to your local SystemLink instance.
+        </p>
+        <label class="field-label">Feed URL</label>
+        <nimble-text-field
+          [value]="feedUrl"
+          (input)="feedUrl = $any($event).target.value"
+          placeholder="https://…">
+        </nimble-text-field>
+        <nimble-button appearance="outline" (click)="replicateFeed()" [disabled]="loading">
+          {{ loading ? 'Replicating…' : 'Replicate Feed' }}
+        </nimble-button>
+      </div>
+    </section>
+
+    <!-- Step 2: Create Manifest -->
+    <section class="step" [class.active]="step === 2" [class.done]="step > 2">
+      <div class="step-header">
+        <span class="step-number" [class.completed]="step > 2">2</span>
+        <span class="step-title">Initialize workspace configuration</span>
+      </div>
+      <div *ngIf="step === 2" class="step-body">
+        <p>
+          Create the install manifest that tracks which apps are installed
+          in your workspace.
+        </p>
+        <nimble-button appearance="outline" (click)="createManifest()" [disabled]="loading">
+          {{ loading ? 'Creating…' : 'Create Manifest' }}
+        </nimble-button>
+      </div>
+    </section>
+
+    <!-- Step 3: Done -->
+    <section class="step" [class.active]="step === 3">
+      <div class="step-header">
+        <span class="step-number" [class.completed]="step >= 3">3</span>
+        <span class="step-title">You're all set!</span>
+      </div>
+      <div *ngIf="step === 3" class="step-body">
+        <p>
+          Your App Store is ready. Browse apps and install them
+          to your SystemLink instance.
+        </p>
+        <nimble-button appearance="outline" (click)="goToCatalog()">
+          Go to Catalog
+        </nimble-button>
+      </div>
+    </section>
+  </div>
+</div>
