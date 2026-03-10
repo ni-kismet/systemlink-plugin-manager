@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { AppPackage, InstalledApp, InstallManifest, DEFAULT_FEED_URL } from '../models/app-store.models';
 // DEFAULT_FEED_URL is used only for createEmptyManifest (the source URL on first onboarding)
 import { AppStoreService } from '../services/app-store.service';
+import { isNewerVersion } from '../utils/semver';
 
 @Component({
   selector: 'app-catalog',
@@ -92,7 +93,7 @@ export class CatalogComponent implements OnInit {
 
   hasUpgrade(pkg: AppPackage): boolean {
     const installed = this.installedApps[pkg.packageName];
-    return !!installed && installed.version !== pkg.version;
+    return !!installed && isNewerVersion(pkg.version, installed.version);
   }
 
   openDetail(pkg: AppPackage): void {

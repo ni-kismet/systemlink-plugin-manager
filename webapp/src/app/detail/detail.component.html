@@ -8,11 +8,6 @@
 </nimble-banner>
 
 <ng-container *ngIf="!loading && pkg">
-  <nimble-breadcrumb>
-    <nimble-breadcrumb-item nimbleRouterLink="/catalog">Catalog</nimble-breadcrumb-item>
-    <nimble-breadcrumb-item>{{ pkg.displayName }}</nimble-breadcrumb-item>
-  </nimble-breadcrumb>
-
   <app-permission-banner [hasPermission]="hasPermission"></app-permission-banner>
 
   <div class="detail-layout">
@@ -27,13 +22,13 @@
         <span class="pkg-version">v{{ pkg.version }}</span>
       </div>
       <div class="header-actions" *ngIf="hasPermission">
-        <nimble-button *ngIf="!installed" appearance="outline" (click)="install()" [disabled]="actionLoading">
-          {{ actionLoading ? 'Installing…' : 'Install' }}
+        <nimble-button *ngIf="installableWorkspaces.length > 0 || installedSomewhere" appearance="outline" (click)="openInstallDialog()" [disabled]="actionLoading">
+          {{ installedSomewhere ? 'Edit Workspaces' : 'Install' }}
         </nimble-button>
         <nimble-button *ngIf="installed && upgradeAvailable" appearance="outline" (click)="upgrade()" [disabled]="actionLoading">
           {{ actionLoading ? 'Upgrading…' : 'Upgrade' }}
         </nimble-button>
-        <nimble-button *ngIf="installed" appearance="ghost" (click)="confirmUninstall = true" [disabled]="actionLoading">
+        <nimble-button *ngIf="installedSomewhere" appearance="ghost" (click)="openUninstallDialog()" [disabled]="actionLoading">
           Uninstall
         </nimble-button>
       </div>
@@ -77,7 +72,7 @@
         </div>
 
         <div *ngIf="installed" class="installed-info">
-          <h3>Installation</h3>
+          <h3>Current Workspace Installation</h3>
           <dl class="meta-list">
             <dt>Installed Version</dt>
             <dd>v{{ installed.version }}</dd>
@@ -87,17 +82,65 @@
             <dd *ngIf="installed.updatedAt">{{ installed.updatedAt | date:'medium' }}</dd>
           </dl>
         </div>
+
+        <div *ngIf="installedSomewhere" class="installed-info">
+          <h3>Workspace Installations</h3>
+          <p class="workspace-summary">
+            Installed in {{ workspaceInstallations.length }} workspace{{ workspaceInstallations.length === 1 ? '' : 's' }}.
+          </p>
+          <div class="workspace-installations">
+            <div *ngFor="let installation of workspaceInstallations" class="workspace-installation-row">
+              <span class="workspace-installation-name">
+                {{ installation.workspaceName }}
+                <span *ngIf="installation.isCurrentWorkspace">(current)</span>
+              </span>
+              <span class="workspace-installation-version">v{{ installation.version }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Uninstall confirmation dialog -->
-  <nimble-dialog *ngIf="confirmUninstall">
-    <h3>Confirm Uninstall</h3>
-    <p>Are you sure you want to uninstall <strong>{{ pkg.displayName }}</strong>?</p>
-    <div class="dialog-actions">
-      <nimble-button appearance="ghost" (click)="confirmUninstall = false">Cancel</nimble-button>
-      <nimble-button appearance="outline" (click)="uninstall()">Uninstall</nimble-button>
+  <nimble-dialog #installDialog>
+    <span slot="title">{{ isEditMode ? 'Manage Workspaces' : 'Choose Workspaces' }}</span>
+    <span slot="subtitle">
+      <ng-container *ngIf="isEditMode">Add or remove workspaces for {{ pkg.displayName }}.</ng-container>
+      <ng-container *ngIf="!isEditMode">Select one or more workspaces where {{ pkg.displayName }} should be installed.</ng-container>
+    </span>
+    <nimble-select #workspaceSelect
+      filter-mode="standard"
+      class="workspace-select"
+      [disabled]="actionLoading"
+      (change)="onWorkspaceSelected($event)">
+      <nimble-list-option value="" disabled selected hidden>Select workspace…</nimble-list-option>
+      <nimble-list-option
+        *ngFor="let option of selectableOptions; trackBy: trackWorkspaceById"
+        [value]="option.workspaceId">
+        {{ option.workspaceName }}{{ option.isCurrentWorkspace ? ' (current)' : '' }}
+      </nimble-list-option>
+    </nimble-select>
+    <div class="pending-workspaces-list" *ngIf="pendingWorkspaceIds.length > 0">
+      <div *ngFor="let id of pendingWorkspaceIds" class="pending-workspace-row">
+        <span class="pending-workspace-name">
+          {{ getWorkspaceName(id) }}
+          <span *ngIf="isCurrentWorkspace(id)" class="pending-workspace-current">(current)</span>
+          <span *ngIf="isAlreadyInstalled(id) && !isCurrentWorkspace(id)" class="pending-workspace-current">(installed)</span>
+        </span>
+        <nimble-button appearance="ghost" class="pending-workspace-remove" (click)="removeWorkspace(id)" [disabled]="actionLoading">✕</nimble-button>
+      </div>
     </div>
+    <nimble-button appearance="ghost" slot="footer" (click)="closeInstallDialog()">Cancel</nimble-button>
+    <nimble-button appearance="outline" slot="footer" (click)="applyWorkspaceChanges()" [disabled]="applyDisabled">
+      {{ applyActionLabel }}
+    </nimble-button>
+  </nimble-dialog>
+
+  <!-- Uninstall confirmation dialog -->
+  <nimble-dialog #confirmDialog>
+    <span slot="title">Confirm Uninstall</span>
+    <span>Uninstall {{ pkg.displayName }} from all {{ workspaceInstallations.length }} workspace{{ workspaceInstallations.length === 1 ? '' : 's' }}?</span>
+    <nimble-button appearance="ghost" slot="footer" (click)="closeUninstallDialog()">Cancel</nimble-button>
+    <nimble-button appearance="outline" slot="footer" (click)="uninstall()">Uninstall All</nimble-button>
   </nimble-dialog>
 </ng-container>

@@ -1,15 +1,23 @@
+:host {
+  display: flex;
+  height: 100%;
+}
+
 .app-card {
   display: flex;
+  flex: 1;
   gap: var(--sl-app-space-3);
   padding: var(--sl-app-space-4);
   border: 1px solid var(--ni-nimble-card-border-color);
   border-radius: var(--sl-app-space-1);
   cursor: pointer;
-  transition: box-shadow var(--ni-nimble-medium-delay, 0.15s) ease;
+  transition: box-shadow var(--ni-nimble-medium-delay, 0.15s) ease,
+              border-color var(--ni-nimble-medium-delay, 0.15s) ease;
   background: var(--ni-nimble-section-background-color);
 
   &:hover {
-    box-shadow: var(--ni-nimble-elevation-2-box-shadow);
+    box-shadow: var(--ni-nimble-elevation-2-box-shadow, 0 2px 8px rgba(0, 0, 0, 0.12));
+    border-color: var(--ni-nimble-border-hover-color);
   }
 }
 
@@ -41,6 +49,7 @@
 .card-body {
   display: flex;
   flex-direction: column;
+  flex: 1;
   gap: var(--sl-app-space-1);
   min-width: 0;
 }
@@ -82,6 +91,7 @@
 }
 
 .card-description {
+  flex: 1;
   font: var(--sl-app-font-body);
   color: var(--ni-nimble-body-font-color);
   line-height: 1.4;

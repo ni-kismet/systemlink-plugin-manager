@@ -1,4 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Router, NavigationEnd } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
@@ -8,15 +11,32 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 })
 export class App implements OnInit, OnDestroy {
   currentTheme: 'light' | 'dark' = 'light';
+  activeTabId = 'catalog';
   private themeObserver: MutationObserver | null = null;
+  private routerSub?: Subscription;
+
+  constructor(private router: Router) {}
 
   ngOnInit(): void {
     this.currentTheme = this.detectInitialTheme();
     this.watchParentTheme();
+    this.activeTabId = this.tabIdFromUrl(this.router.url);
+    this.routerSub = this.router.events.pipe(
+      filter(e => e instanceof NavigationEnd)
+    ).subscribe(e => {
+      this.activeTabId = this.tabIdFromUrl((e as NavigationEnd).urlAfterRedirects);
+    });
   }
 
   ngOnDestroy(): void {
     this.themeObserver?.disconnect();
+    this.routerSub?.unsubscribe();
+  }
+
+  private tabIdFromUrl(url: string): string {
+    if (url.startsWith('/installed')) return 'installed';
+    if (url.startsWith('/settings')) return 'settings';
+    return 'catalog';
   }
 
   private detectInitialTheme(): 'light' | 'dark' {

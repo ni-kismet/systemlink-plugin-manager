@@ -46,7 +46,7 @@ Publishing is **curated**: all submissions go through a PR-based review process 
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │ WebApp Service — install/uninstall custom webapps            │   │
 │  │ Feed Service — manage packages (nisystemlink-clients-ts)     │   │
-│  │ File Service — install manifest + App Store config           │   │
+│  │ Tag Service — install manifest + App Store config            │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -150,7 +150,7 @@ The feed architecture supports **OpenPGP signing** of the `Packages` index (stan
 
 ### 3.5 Feed discovery
 
-The App Store feed is identified by a well-known feed name: `"SystemLink App Store"`. Both the webapp and CLI discover the feed by listing all feeds (`GET /nifeed/v1/feeds`) and finding the one with this name. The feed ID and configuration are stored alongside the install manifest in the File Service (see §8).
+The App Store feed is identified by a well-known feed name: `"SystemLink App Store"`. Both the webapp and CLI discover the feed by listing all feeds (`GET /nifeed/v1/feeds`) and finding the one with this name. The feed ID and configuration are stored alongside the install manifest in the Tag Service (see §8).
 
 ---
 
@@ -171,7 +171,7 @@ The App Store feed is identified by a well-known feed name: `"SystemLink App Sto
 - **Design system:** `@ni/nimble-angular` — cards, table, buttons, drawers, banners, breadcrumbs, spinner
 - **API calls:** Use `nisystemlink-clients-ts` for all SystemLink API calls:
   - **Feed Service** — `nisystemlink-clients-ts/feeds` (already available: `getNifeedV1Feeds`, `getNifeedV1FeedsByFeedIdPackages`, `getNifeedV1FeedsByFeedIdFilesPackages`, `postNifeedV1ReplicateFeed`, `uploadPackageToFeedAsync`, etc.)
-  - **File Service** — `nisystemlink-clients-ts/file-ingestion` (for install manifest and config storage)
+    - **Tag Service** — `nisystemlink-clients-ts/tags` (for install manifest and config storage as a workspace-scoped STRING tag)
   - **WebApp Service** — `nisystemlink-clients-ts/web-application` (already available: `createWebapp`, `updateContent`, `deleteWebapp`, `listWebapps`, `query`, `getWebapp`, `updateWebapp`)
 - **Auth:** Same-origin cookie auth (`credentials: 'include'`), no API key needed
 - **Routing:** Hash-based (`useHash: true`) for SystemLink sub-path hosting
@@ -194,28 +194,29 @@ If permissions are missing, display a `<nimble-banner severity="warning">` expla
 2. Discovers feed by listing feeds via `getNifeedV1Feeds()` and finding `"SystemLink App Store"`
 3. Calls `getNifeedV1FeedsByFeedIdPackages()` to list all packages
 4. Filters packages to `UserVisible: yes` and `AppStoreType: webapp` (or `Section: WebApps`)
-5. Renders card grid with base64-decoded icon, name, author, description, version
-6. User clicks card → detail drawer/page with full info, base64-decoded screenshot
-7. User clicks "Install" → choose target workspace(s) → for each workspace:
+5. Collapses multiple feed entries with the same `Package` name to the latest semantic version so the catalog shows one card per app
+6. Renders card grid with base64-decoded icon, name, author, description, version
+7. User clicks card → detail drawer/page with full info, base64-decoded screenshot
+8. User clicks "Install" → choose target workspace(s) → for each workspace:
    a. Download `.nipkg` from feed via `getNifeedV1FeedsByFeedIdFilesByFileName()`
    b. Create a new webapp: `createWebapp({ name, workspace, properties })`
    c. Upload the `.nipkg` directly: `updateContent({ id }, nipkgBlob)` — no extraction needed
-8. Records install in the workspace's File Service manifest (see §8)
-9. Status updates via banner confirmation
+9. Records install in the workspace's Tag Service manifest (see §8)
+10. Status updates via banner confirmation
 
 #### Upgrade
 
 1. Compare installed webapp versions (from manifest) against catalog versions using semver comparison
 2. Show upgrade badge on cards where `catalog.version > installed.version`
 3. User clicks "Upgrade" → download new `.nipkg`, re-upload via `updateContent(existingId, nipkgBlob)` for each workspace where it's installed
-4. Update version in manifest
+4. Update version in the workspace's Tag Service manifest
 
 #### Uninstall
 
 1. User clicks "Uninstall" → choose which workspace(s) to uninstall from (or all)
 2. Confirm with modal dialog
 3. `deleteWebapp({ id })` for each workspace
-4. Update manifest (remove workspace entries, or remove app entirely if last workspace)
+4. Update the workspace's Tag Service manifest (remove workspace entries, or remove app entirely if last workspace)
 
 #### Multi-workspace management
 
@@ -226,25 +227,26 @@ If permissions are missing, display a `<nimble-banner severity="warning">` expla
 
 ### 4.4 API surface needed
 
-| Operation                 | Service        | SDK client         | SDK function                                              | Endpoint                                              |
-| ------------------------- | -------------- | ------------------ | --------------------------------------------------------- | ----------------------------------------------------- |
-| List feeds (discovery)    | Feed Service   | `#feeds`           | `getNifeedV1Feeds()`                                      | `GET /nifeed/v1/feeds`                                |
-| List feed packages        | Feed Service   | `#feeds`           | `getNifeedV1FeedsByFeedIdPackages()`                      | `GET /nifeed/v1/feeds/{feedId}/packages`              |
-| Get single package        | Feed Service   | `#feeds`           | `getNifeedV1PackagesByPackageId()`                        | `GET /nifeed/v1/packages/{packageId}`                 |
-| Download Packages index   | Feed Service   | `#feeds`           | `getNifeedV1FeedsByFeedIdFilesPackages()`                 | `GET /nifeed/v1/feeds/{feedId}/files/Packages`        |
-| Download package file     | Feed Service   | `#feeds`           | `getNifeedV1FeedsByFeedIdFilesByFileName()`               | `GET /nifeed/v1/feeds/{feedId}/files/{fileName}`      |
-| Trigger feed sync         | Feed Service   | `#feeds`           | `postNifeedV1ReplicateFeed()`                             | `POST /nifeed/v1/replicate-feed`                      |
-| Check for updates         | Feed Service   | `#feeds`           | `postNifeedV1FeedsByFeedIdCheckForUpdates()`              | `POST /nifeed/v1/feeds/{feedId}/check-for-updates`    |
-| Apply updates             | Feed Service   | `#feeds`           | `postNifeedV1FeedsByFeedIdApplyUpdates()`                 | `POST /nifeed/v1/feeds/{feedId}/apply-updates`        |
-| Create webapp (metadata)  | WebApp Service | `#web-application` | `createWebapp({ body: { name, workspace, properties } })` | `POST /niapp/v1/webapps`                              |
-| Upload `.nipkg` to webapp | WebApp Service | `#web-application` | `updateContent({ path: { id }, body: nipkgBlob })`        | `PUT /niapp/v1/webapps/{id}/content`                  |
-| List installed webapps    | WebApp Service | `#web-application` | `listWebapps({ query: { workspace } })`                   | `GET /niapp/v1/webapps`                               |
-| Query webapps (advanced)  | WebApp Service | `#web-application` | `query({ body: { filter, take, orderBy } })`              | `POST /niapp/v1/query-webapps`                        |
-| Get webapp details        | WebApp Service | `#web-application` | `getWebapp({ path: { id } })`                             | `GET /niapp/v1/webapps/{id}`                          |
-| Update webapp metadata    | WebApp Service | `#web-application` | `updateWebapp({ path: { id }, body })`                    | `PUT /niapp/v1/webapps/{id}`                          |
-| Delete a webapp           | WebApp Service | `#web-application` | `deleteWebapp({ path: { id } })`                          | `DELETE /niapp/v1/webapps/{id}`                       |
-| Read install manifest     | File Service   | `#file-ingestion`  | `queryFilesLinq()`                                        | `POST /nifile/v1/service-groups/Default/search-files` |
-| Write install manifest    | File Service   | `#file-ingestion`  | via upload                                                | `POST /nifile/v1/service-groups/Default/upload-files` |
+| Operation                 | Service        | SDK client         | SDK function                                              | Endpoint                                               |
+| ------------------------- | -------------- | ------------------ | --------------------------------------------------------- | ------------------------------------------------------ |
+| List feeds (discovery)    | Feed Service   | `#feeds`           | `getNifeedV1Feeds()`                                      | `GET /nifeed/v1/feeds`                                 |
+| List feed packages        | Feed Service   | `#feeds`           | `getNifeedV1FeedsByFeedIdPackages()`                      | `GET /nifeed/v1/feeds/{feedId}/packages`               |
+| Get single package        | Feed Service   | `#feeds`           | `getNifeedV1PackagesByPackageId()`                        | `GET /nifeed/v1/packages/{packageId}`                  |
+| Download Packages index   | Feed Service   | `#feeds`           | `getNifeedV1FeedsByFeedIdFilesPackages()`                 | `GET /nifeed/v1/feeds/{feedId}/files/Packages`         |
+| Download package file     | Feed Service   | `#feeds`           | `getNifeedV1FeedsByFeedIdFilesByFileName()`               | `GET /nifeed/v1/feeds/{feedId}/files/{fileName}`       |
+| Trigger feed sync         | Feed Service   | `#feeds`           | `postNifeedV1ReplicateFeed()`                             | `POST /nifeed/v1/replicate-feed`                       |
+| Check for updates         | Feed Service   | `#feeds`           | `postNifeedV1FeedsByFeedIdCheckForUpdates()`              | `POST /nifeed/v1/feeds/{feedId}/check-for-updates`     |
+| Apply updates             | Feed Service   | `#feeds`           | `postNifeedV1FeedsByFeedIdApplyUpdates()`                 | `POST /nifeed/v1/feeds/{feedId}/apply-updates`         |
+| Create webapp (metadata)  | WebApp Service | `#web-application` | `createWebapp({ body: { name, workspace, properties } })` | `POST /niapp/v1/webapps`                               |
+| Upload `.nipkg` to webapp | WebApp Service | `#web-application` | `updateContent({ path: { id }, body: nipkgBlob })`        | `PUT /niapp/v1/webapps/{id}/content`                   |
+| List installed webapps    | WebApp Service | `#web-application` | `listWebapps({ query: { workspace } })`                   | `GET /niapp/v1/webapps`                                |
+| Query webapps (advanced)  | WebApp Service | `#web-application` | `query({ body: { filter, take, orderBy } })`              | `POST /niapp/v1/query-webapps`                         |
+| Get webapp details        | WebApp Service | `#web-application` | `getWebapp({ path: { id } })`                             | `GET /niapp/v1/webapps/{id}`                           |
+| Update webapp metadata    | WebApp Service | `#web-application` | `updateWebapp({ path: { id }, body })`                    | `PUT /niapp/v1/webapps/{id}`                           |
+| Delete a webapp           | WebApp Service | `#web-application` | `deleteWebapp({ path: { id } })`                          | `DELETE /niapp/v1/webapps/{id}`                        |
+| Read install manifest     | Tag Service    | `#tags`            | `getTagWithValueInWorkspace()`                            | `GET /nitag/v2/tags/{workspace}/{path}/value`          |
+| Create manifest tag       | Tag Service    | `#tags`            | `createOrReplaceTagInWorkspace()`                         | `PUT /nitag/v2/tags/{workspace}/{path}`                |
+| Write install manifest    | Tag Service    | `#tags`            | `updateTagCurrentValuesInWorkspace()`                     | `PUT /nitag/v2/tags/{workspace}/{path}/values/current` |
 
 > **Note:** The WebApp Service accepts `.nipkg` files directly via `updateContent()` — no browser-side extraction is required. The `body` parameter accepts a `Blob | File`.
 
@@ -261,7 +263,7 @@ Eventually, a **GitHub Pages landing page** for the App Store project will provi
 
 ### 4.6 Onboarding flow (first-time setup)
 
-When the App Store webapp launches and finds no install manifest in the File Service, it presents an onboarding wizard:
+When the App Store webapp launches and finds no install manifest in the Tag Service, it presents an onboarding wizard:
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -290,7 +292,7 @@ The onboarding flow:
 
 1. **Pre-fills the GitHub feed URL** with the official App Store feed URL
 2. **Replicates the feed** on the user's behalf via `postNifeedV1ReplicateFeed()` — the user does not need to manually configure the Feed Service
-3. **Creates the install manifest** in the File Service for the selected workspace
+3. **Creates the install manifest** in the Tag Service for the selected workspace
 4. **Redirects to the catalog** once setup is complete
 
 ### 4.7 Feed refresh
@@ -329,7 +331,7 @@ slcli appstore install <PACKAGE_NAME> [--version TEXT] [--workspace NAME [NAME .
     # Download the package from the feed, extract the webapp, and publish.
     # Supports installing to one or more workspaces in a single command.
     # For notebooks: upload to the notebook service.
-    # Records installed version in the File Service manifest.
+    # Records installed version in the Tag Service manifest.
 
 slcli appstore upgrade <PACKAGE_NAME> [--workspace NAME]
     # Upgrade to the latest version. Preserves the webapp ID.
@@ -340,7 +342,7 @@ slcli appstore upgrade --all [--workspace NAME]
 
 slcli appstore uninstall <PACKAGE_NAME> [--workspace NAME [NAME ...]]
     # Remove the webapp from specified workspaces (or all if --workspace not given).
-    # Clean up the File Service manifest entry.
+    # Clean up the Tag Service manifest entry.
 
 slcli appstore workspaces <PACKAGE_NAME>
     # List workspaces where this app is currently installed.
@@ -385,7 +387,7 @@ slcli appstore validate <NIPKG_FILE>
 
 ### 5.2 Configuration
 
-The CLI caches the App Store feed ID locally in `~/.config/slcli/appstore.json` for performance, but the canonical install manifest and config live in the **File Service** (see §8) so both the CLI and webapp share the same state.
+The CLI caches the App Store feed ID locally in `~/.config/slcli/appstore.json` for performance, but the canonical install manifest and config live in the **Tag Service** (see §8) so both the CLI and webapp share the same state.
 
 ```json
 {
@@ -395,7 +397,7 @@ The CLI caches the App Store feed ID locally in `~/.config/slcli/appstore.json` 
 }
 ```
 
-The actual install manifest is stored in the File Service (see §8). The CLI reads/writes it the same way the webapp does.
+The actual install manifest is stored in the Tag Service (see §8). The CLI reads/writes it the same way the webapp does.
 
 ---
 
@@ -522,31 +524,32 @@ A `.nipkg` package for the App Store is the standard NI Package format — a ZIP
 1. CLI/webapp downloads `.nipkg` from the feed via `getNifeedV1FeedsByFeedIdFilesByFileName()`
 2. Creates a new webapp: `createWebapp({ body: { name, workspace, properties } })` — returns the new webapp `id`
 3. Uploads the `.nipkg` directly: `updateContent({ path: { id }, body: nipkgBlob })` — the WebApp Service handles extraction internally
-4. Records the mapping `packageName → webappId` in the workspace's install manifest (see §8)
+4. Records the mapping `packageName → webappId` in the workspace's install manifest tag (see §8)
 
 ### 7.3 Upgrade flow
 
 1. Download new version `.nipkg` from the feed
 2. Upload to the existing webapp: `updateContent({ path: { existingId }, body: nipkgBlob })` — the webapp ID is preserved
-3. Update version in the workspace's install manifest
+3. Update version in the workspace's install manifest tag
 
 ### 7.4 Uninstall flow
 
 1. `deleteWebapp({ path: { id } })` — removes the webapp
-2. Remove entry from the workspace's install manifest
+2. Remove entry from the workspace's install manifest tag
 
 ---
 
-## 8. Install Manifest (File Service — Per Workspace)
+## 8. Install Manifest (Tag Service — Per Workspace)
 
-The install manifest tracks which App Store packages are installed. There is **one manifest per workspace**, stored as a JSON file in the SystemLink File Service within that workspace. This ensures workspace-level isolation and respects SystemLink's workspace-based access control.
+The install manifest tracks which App Store packages are installed. There is **one manifest per workspace**, stored as the current value of a STRING tag in the SystemLink Tag Service within that workspace. This preserves workspace-level isolation and respects SystemLink's workspace-based access control.
 
-### 8.1 Manifest file
+### 8.1 Manifest tag
 
-Each workspace has its own manifest, stored with well-known metadata so it can be discovered via `queryFilesLinq`:
+Each workspace has its own manifest, stored at a well-known tag path so it can be discovered and updated consistently:
 
-- **File name:** `systemlink-appstore-manifest.json`
-- **File properties:** `{ "appstore": "manifest", "version": "1" }`
+- **Tag path:** `systemlink-app-store/manifest`
+- **Tag type:** `STRING`
+- **Current value:** JSON-serialized manifest document
 - **Workspace:** stored in the same workspace as the apps it tracks
 
 ```json
@@ -578,20 +581,20 @@ Each workspace has its own manifest, stored with well-known metadata so it can b
 
 ### 8.2 Manifest operations
 
-| Operation    | Description                                                                                          |
-| ------------ | ---------------------------------------------------------------------------------------------------- |
-| **Discover** | `queryFilesLinq({ filter: 'properties.appstore = "manifest"', workspace })`                          |
-| **Read**     | Download the file by ID                                                                              |
-| **Create**   | Upload with the well-known name and properties in the target workspace (first install or onboarding) |
-| **Update**   | Re-upload with updated content (on install/upgrade/uninstall)                                        |
+| Operation    | Description                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| **Discover** | Resolve the workspace, then read the well-known tag path `systemlink-app-store/manifest` |
+| **Read**     | `getTagWithValueInWorkspace({ workspace, path: 'systemlink-app-store/manifest' })`       |
+| **Create**   | `createOrReplaceTagInWorkspace()` with type `STRING` in the target workspace             |
+| **Update**   | `updateTagCurrentValuesInWorkspace()` with the JSON-serialized manifest                  |
 
 ### 8.3 Cross-workspace views
 
-When the App Store webapp needs to show apps across all workspaces (e.g., the "Installed" view), it queries the manifest from each accessible workspace. The webapp iterates over the user's visible workspaces, querying for the manifest file in each.
+When the App Store webapp needs to show apps across all workspaces (e.g., the "Installed" view), it queries the manifest tag from each accessible workspace. The webapp iterates over the user's visible workspaces, reading the same well-known tag path in each workspace.
 
 ### 8.4 Concurrency
 
-Both the webapp and CLI may read/write a workspace's manifest. Use optimistic concurrency: read the file, make changes, re-upload. If two operations race, the last write wins. This is acceptable for the expected low frequency of install/uninstall operations.
+Both the webapp and CLI may read/write a workspace's manifest. Use optimistic concurrency: read the tag value, make changes, overwrite the current value. If two operations race, the last write wins. This is acceptable for the expected low frequency of install/uninstall operations.
 
 ---
 
@@ -634,7 +637,7 @@ The following questions were raised during initial requirements drafting and hav
 | 4   | Architecture                     | **`windows_all`** for all App Store packages (webapps are platform-independent)                                                                                                                                                                      |
 | 5   | Versioning                       | **Semantic versioning enforced** (`MAJOR.MINOR.PATCH`). CI rejects non-semver versions                                                                                                                                                               |
 | 6   | Install format                   | **Keep `.nipkg`** for compatibility with the existing Feed Service replication pipeline                                                                                                                                                              |
-| 7   | Install manifest                 | **File Service** — per-workspace JSON file, shared between webapp and CLI (see §8)                                                                                                                                                                   |
+| 7   | Install manifest                 | **Tag Service** — per-workspace STRING tag whose current value is a JSON manifest, shared between webapp and CLI (see §8)                                                                                                                            |
 | 8   | Dependency resolution            | **Not required** initially. Keep it simple. `Depends` field is informational only                                                                                                                                                                    |
 | 9   | Multi-workspace                  | **Supported.** Install flow allows choosing one or more workspaces; can add/remove workspaces later                                                                                                                                                  |
 | 10  | Feed ID discovery                | **By name.** List feeds, find `"SystemLink App Store"`. Cache feed ID in the manifest file                                                                                                                                                           |
@@ -652,7 +655,7 @@ The following questions were raised during initial requirements drafting and hav
 | 22  | Feed replication frequency       | **Manual.** Feed refresh is not automatic. Users trigger via "Refresh Feed" button in webapp or `slcli appstore feed sync` CLI command                                                                                                               |
 | 23  | `.nipkg` extraction in browser   | **Not needed.** The WebApp Service accepts `.nipkg` files directly via `updateContent()`. No browser-side or server-side extraction required                                                                                                         |
 | 24  | WebApp Service API for install   | **Use `#web-application` client.** `createWebapp()` + `updateContent(id, nipkgBlob)` for install; `updateContent()` for upgrade; `deleteWebapp()` for uninstall                                                                                      |
-| 25  | Manifest per workspace           | **Yes.** One manifest per workspace in the File Service. Cross-workspace "Installed" view queries each accessible workspace                                                                                                                          |
+| 25  | Manifest per workspace           | **Yes.** One manifest tag per workspace in the Tag Service. Cross-workspace "Installed" view queries each accessible workspace                                                                                                                       |
 | 26  | Catalog performance / pagination | **Feed Service does not appear to support pagination.** Validate performance later with real data. Client-side filtering is the initial approach                                                                                                     |
 | 27  | Onboarding (first-time setup)    | **Yes.** Webapp shows an onboarding wizard that replicates the feed from GitHub on the user's behalf (see §4.6)                                                                                                                                      |
 | 28  | Bootstrap (self-hosting)         | **Manual bootstrap.** User downloads `AppStore.nipkg` from GitHub Releases, uploads via SystemLink WebApp UI, then launches the App Store to complete onboarding. A GitHub Pages landing page will eventually provide a polished download experience |
@@ -689,7 +692,7 @@ Remaining questions that need further investigation:
 
 - Build `slcli appstore publish` to create `.nipkg` from a webapp build directory with base64-encoded icon
 - Build `slcli appstore validate` for pre-submission checks
-- Build `slcli appstore install` / `uninstall` / `status` (using `#web-application` client: `createWebapp()` + `updateContent()`, per-workspace manifest in File Service)
+- Build `slcli appstore install` / `uninstall` / `status` (using `#web-application` client: `createWebapp()` + `updateContent()`, per-workspace manifest tag in Tag Service)
 - Build `slcli appstore feed sync` for manual feed refresh
 - Build `--source github` support for direct GitHub browsing
 
@@ -702,7 +705,7 @@ Remaining questions that need further investigation:
   - Settings view (feed refresh button, workspace selection)
 - Implement onboarding wizard for first-time setup (feed replication from GitHub, manifest creation) — see §4.6
 - Implement permission check on launch with guidance banner
-- Implement multi-workspace install flow (per-workspace manifest)
+- Implement multi-workspace install flow (per-workspace manifest tag)
 - Package the App Store webapp itself as `AppStore.nipkg` and publish to GitHub Releases (bootstrap)
 - Create GitHub Pages landing page with download instructions
 

@@ -5,7 +5,8 @@
   align-items: center;
 
   nimble-text-field {
-    flex: 1;
+    margin-left: auto;
+    min-width: 200px;
     max-width: 25rem;
   }
 }
@@ -42,5 +43,11 @@
   .catalog-toolbar {
     flex-direction: column;
     align-items: stretch;
+
+    nimble-text-field {
+      margin-left: 0;
+      min-width: 0;
+      max-width: none;
+    }
   }
 }

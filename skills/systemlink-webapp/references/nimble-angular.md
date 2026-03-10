@@ -27,22 +27,26 @@ When debugging theme mismatches, inspect resolved token values on the provider w
 Displays tabular data. Data must be an `Observable<TableRecord[]>` bound with `[data$]`.
 
 ### Module
+
 ```typescript
-import { NimbleTableModule } from '@ni/nimble-angular/table';
+import { NimbleTableModule } from "@ni/nimble-angular/table";
 ```
 
 ### Row type requirement
+
 Your row type must satisfy `TableRecord`. Add an index signature:
+
 ```typescript
 interface MyRow {
   id: string;
   name: string;
   value: string | undefined;
-  [key: string]: FieldValue | undefined;  // required for TableRecord compatibility
+  [key: string]: FieldValue | undefined; // required for TableRecord compatibility
 }
 ```
 
 ### Template
+
 ```html
 <nimble-table
   [data$]="rows$"
@@ -50,19 +54,18 @@ interface MyRow {
   selection-mode="single"
   (selection-change)="onSelectionChange($event)"
 >
-  <nimble-table-column-text
-    field-name="name"
-    column-id="col-name"
-  >Name</nimble-table-column-text>
+  <nimble-table-column-text field-name="name" column-id="col-name"
+    >Name</nimble-table-column-text
+  >
 
-  <nimble-table-column-text
-    field-name="value"
-    column-id="col-value"
-  >Value</nimble-table-column-text>
+  <nimble-table-column-text field-name="value" column-id="col-value"
+    >Value</nimble-table-column-text
+  >
 </nimble-table>
 ```
 
 ### Component wiring
+
 ```typescript
 import { TableRecord, TableRowSelectionEventDetail } from '@ni/nimble-angular/table';
 import { BehaviorSubject } from 'rxjs';
@@ -92,7 +95,7 @@ Simple string column. Import: `NimbleTableColumnTextModule` from `@ni/nimble-ang
 ## nimble-button
 
 ```typescript
-import { NimbleButtonModule } from '@ni/nimble-angular/button';
+import { NimbleButtonModule } from "@ni/nimble-angular/button";
 ```
 
 ```html
@@ -100,7 +103,11 @@ import { NimbleButtonModule } from '@ni/nimble-angular/button';
 <nimble-button (click)="doSomething()">Click Me</nimble-button>
 
 <!-- Accent/primary style -->
-<nimble-button appearance="block" appearance-variant="accent" (click)="doSomething()">
+<nimble-button
+  appearance="block"
+  appearance-variant="accent"
+  (click)="doSomething()"
+>
   Primary Action
 </nimble-button>
 
@@ -115,7 +122,7 @@ import { NimbleButtonModule } from '@ni/nimble-angular/button';
 ## nimble-text-field
 
 ```typescript
-import { NimbleTextFieldModule } from '@ni/nimble-angular/text-field';
+import { NimbleTextFieldModule } from "@ni/nimble-angular/text-field";
 ```
 
 ```html
@@ -133,8 +140,8 @@ import { NimbleTextFieldModule } from '@ni/nimble-angular/text-field';
 ## nimble-select + nimble-list-option
 
 ```typescript
-import { NimbleSelectModule } from '@ni/nimble-angular/select';
-import { NimbleListOptionModule } from '@ni/nimble-angular/list-option';
+import { NimbleSelectModule } from "@ni/nimble-angular/select";
+import { NimbleListOptionModule } from "@ni/nimble-angular/list-option";
 ```
 
 ```html
@@ -153,14 +160,16 @@ import { NimbleListOptionModule } from '@ni/nimble-angular/list-option';
 Side panel for details or config. Control with `#drawerRef` template variable.
 
 ```typescript
-import { NimbleDrawerModule } from '@ni/nimble-angular/drawer';
+import { NimbleDrawerModule } from "@ni/nimble-angular/drawer";
 ```
 
 ```html
 <nimble-drawer #detailDrawer location="right">
   <h3 slot="header">Detail</h3>
   <div>{{ selectedItem?.name }}</div>
-  <nimble-button slot="footer" (click)="detailDrawer.hide()">Close</nimble-button>
+  <nimble-button slot="footer" (click)="detailDrawer.hide()"
+    >Close</nimble-button
+  >
 </nimble-drawer>
 
 <nimble-button (click)="detailDrawer.show()">Open Detail</nimble-button>
@@ -171,7 +180,7 @@ import { NimbleDrawerModule } from '@ni/nimble-angular/drawer';
 ## nimble-spinner
 
 ```typescript
-import { NimbleSpinnerModule } from '@ni/nimble-angular/spinner';
+import { NimbleSpinnerModule } from "@ni/nimble-angular/spinner";
 ```
 
 ```html
@@ -185,7 +194,7 @@ import { NimbleSpinnerModule } from '@ni/nimble-angular/spinner';
 For in-page error/warning/info messages.
 
 ```typescript
-import { NimbleBannerModule } from '@ni/nimble-angular/banner';
+import { NimbleBannerModule } from "@ni/nimble-angular/banner";
 ```
 
 ```html
@@ -220,7 +229,7 @@ Nimble doesn't ship a grid/layout component. Use flexbox in SCSS:
 
 .table-container {
   flex: 1;
-  min-height: 0;   // important — lets flex child shrink below its content height
+  min-height: 0; // important — lets flex child shrink below its content height
 }
 
 nimble-table {

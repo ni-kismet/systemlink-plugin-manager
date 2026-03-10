@@ -13,16 +13,10 @@ permissions:
 
 jobs:
   publish:
-    name: Build and release webapp package
+    name: Publish submitted package
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: webapp/package-lock.json
 
       - name: Read manifest
         id: manifest
@@ -40,16 +34,55 @@ jobs:
           echo "display_name=$DISPLAY_NAME" >> "$GITHUB_OUTPUT"
           echo "tag=${PACKAGE}-v${VERSION}" >> "$GITHUB_OUTPUT"
 
+      - name: Locate release artifact
+        id: artifact
+        run: |
+          DIR="submissions/${{ inputs.submission }}"
+          EXPLICIT=$(jq -r '.nipkgFile // empty' "$DIR/manifest.json")
+          FOUND=""
+
+          if [ -n "$EXPLICIT" ] && [ -f "$DIR/$EXPLICIT" ]; then
+            FOUND="$DIR/$EXPLICIT"
+          elif [ -z "$EXPLICIT" ]; then
+            shopt -s nullglob
+            MATCHES=("$DIR"/*.nipkg)
+            shopt -u nullglob
+            if [ "${#MATCHES[@]}" -eq 1 ]; then
+              FOUND="${MATCHES[0]}"
+            fi
+          fi
+
+          if [ -n "$FOUND" ]; then
+            echo "build_webapp=false" >> "$GITHUB_OUTPUT"
+            echo "path=$FOUND" >> "$GITHUB_OUTPUT"
+            echo "name=$(basename "$FOUND")" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.manifest.outputs.package }}" = "systemlink-app-store" ]; then
+            echo "build_webapp=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "✗ No .nipkg artifact found in $DIR. Add one to the submission or set nipkgFile." >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.artifact.outputs.build_webapp == 'true'
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+
       - name: Install webapp dependencies
+        if: steps.artifact.outputs.build_webapp == 'true'
         run: npm ci
         working-directory: webapp
 
       - name: Build webapp
+        if: steps.artifact.outputs.build_webapp == 'true'
         run: npm run build
         working-directory: webapp
 
-      - name: Package webapp as .nipkg
-        id: nipkg
+      - name: Package SystemLink App Store webapp
+        if: steps.artifact.outputs.build_webapp == 'true'
+        id: build_nipkg
         run: |
           rm -rf webapp/dist/nipkg
           npx -y @ni-kismet/sl-webapp-nipkg@0.3.0 build \
@@ -67,17 +100,28 @@ jobs:
           echo "path=$NIPKG" >> "$GITHUB_OUTPUT"
           echo "name=$(basename "$NIPKG")" >> "$GITHUB_OUTPUT"
 
+      - name: Select release artifact
+        id: release_artifact
+        run: |
+          if [ "${{ steps.artifact.outputs.build_webapp }}" = "true" ]; then
+            echo "path=${{ steps.build_nipkg.outputs.path }}" >> "$GITHUB_OUTPUT"
+            echo "name=${{ steps.build_nipkg.outputs.name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=${{ steps.artifact.outputs.path }}" >> "$GITHUB_OUTPUT"
+            echo "name=${{ steps.artifact.outputs.name }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if gh release view "${{ steps.manifest.outputs.tag }}" >/dev/null 2>&1; then
             gh release upload "${{ steps.manifest.outputs.tag }}" \
-              "${{ steps.nipkg.outputs.path }}" \
+              "${{ steps.release_artifact.outputs.path }}" \
               --clobber
           else
             gh release create "${{ steps.manifest.outputs.tag }}" \
-              "${{ steps.nipkg.outputs.path }}" \
+              "${{ steps.release_artifact.outputs.path }}" \
               --title "${{ steps.manifest.outputs.display_name }} v${{ steps.manifest.outputs.version }}" \
               --notes "Release of ${{ steps.manifest.outputs.display_name }} version ${{ steps.manifest.outputs.version }}" \
               --latest=false

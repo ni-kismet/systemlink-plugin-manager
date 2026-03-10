@@ -23,7 +23,11 @@ import json
 import mimetypes
 import os
 import re
+import shutil
+import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -81,6 +85,54 @@ def md5_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def hash_remote_file(url: str) -> tuple[int, str, str]:
+    """Download a remote asset and return (size, sha256, md5)."""
+    sha256 = hashlib.sha256()
+    md5 = hashlib.md5()
+    size = 0
+
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "systemlink-app-store-index-builder"},
+    )
+
+    with urllib.request.urlopen(request, timeout=60) as response:
+        for chunk in iter(lambda: response.read(8192), b""):
+            size += len(chunk)
+            sha256.update(chunk)
+            md5.update(chunk)
+
+    return size, sha256.hexdigest(), md5.hexdigest()
+
+
+def hash_remote_file_with_curl(url: str) -> tuple[int, str, str]:
+    """Download a remote asset with curl and return (size, sha256, md5)."""
+    if shutil.which("curl") is None:
+        raise RuntimeError("curl is not available for remote asset download fallback")
+
+    sha256 = hashlib.sha256()
+    md5 = hashlib.md5()
+    size = 0
+
+    process = subprocess.Popen(
+        ["curl", "-LfsS", url],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    assert process.stdout is not None
+    for chunk in iter(lambda: process.stdout.read(8192), b""):
+        size += len(chunk)
+        sha256.update(chunk)
+        md5.update(chunk)
+
+    stderr = process.communicate()[1].decode("utf-8", errors="replace").strip()
+    if process.returncode != 0:
+        raise RuntimeError(stderr or f"curl failed with exit code {process.returncode}")
+
+    return size, sha256.hexdigest(), md5.hexdigest()
 
 
 def validate_manifest(manifest: dict, submission_dir: Path) -> list[str]:
@@ -141,23 +193,30 @@ def build_stanza(manifest: dict, submission_dir: Path, repo_url: str) -> str:
 
     # Find .nipkg
     nipkg_path = find_nipkg(submission_dir, manifest)
+    nipkg_filename = manifest.get("nipkgFile") or (
+        nipkg_path.name
+        if nipkg_path and nipkg_path.is_file()
+        else f"{pkg}_{version}_all.nipkg"
+    )
+
+    # Construct Filename URL pointing to GitHub Release asset
+    filename_url = f"{repo_url}/releases/download/{pkg}-v{version}/{nipkg_filename}"
 
     # Compute checksums and size from the .nipkg if present
     if nipkg_path and nipkg_path.is_file():
         size = nipkg_path.stat().st_size
         sha256 = sha256_file(nipkg_path)
         md5 = md5_file(nipkg_path)
-        nipkg_filename = nipkg_path.name
     else:
-        # For submissions without a local .nipkg (uploaded as Release asset),
-        # these will be provided by the publish-release workflow
-        size = 0
-        sha256 = ""
-        md5 = ""
-        nipkg_filename = f"{pkg}_{version}_all.nipkg"
-
-    # Construct Filename URL pointing to GitHub Release asset
-    filename_url = f"{repo_url}/releases/download/{pkg}-v{version}/{nipkg_filename}"
+        try:
+            size, sha256, md5 = hash_remote_file(filename_url)
+        except urllib.error.URLError as exc:
+            try:
+                size, sha256, md5 = hash_remote_file_with_curl(filename_url)
+            except RuntimeError as curl_exc:
+                raise RuntimeError(
+                    f"[{submission_dir.name}] Could not resolve release asset {filename_url}: {curl_exc}"
+                ) from exc
 
     lines = [
         f"Architecture: all",
@@ -283,7 +342,10 @@ def main() -> int:
             continue
         seen_packages[pkg_name] = submission_dir.name
 
-        stanzas.append(build_stanza(manifest, submission_dir, repo_url))
+        try:
+            stanzas.append(build_stanza(manifest, submission_dir, repo_url))
+        except RuntimeError as exc:
+            all_errors.append(str(exc))
 
     if all_errors:
         print("Validation errors:", file=sys.stderr)

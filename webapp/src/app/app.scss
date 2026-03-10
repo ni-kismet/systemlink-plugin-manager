@@ -14,7 +14,7 @@ nimble-theme-provider {
   --sl-app-color-bg: var(--ni-nimble-application-background-color);
   --sl-app-color-surface: var(--ni-nimble-section-background-color);
   --sl-app-color-surface-alt: var(--ni-nimble-header-background-color);
-  --sl-app-color-border: var(--ni-nimble-border-color);
+  --sl-app-color-border: var(--ni-nimble-divider-background-color);
   --sl-app-color-border-strong: var(--ni-nimble-popup-border-color);
   --sl-app-color-text: var(--ni-nimble-body-font-color);
   --sl-app-color-text-muted: var(--ni-nimble-placeholder-font-color);
@@ -31,25 +31,10 @@ nimble-theme-provider {
   height: 100%;
 }
 
-.app-nav {
-  display: flex;
-  align-items: center;
-  gap: var(--sl-app-space-4);
-  padding: var(--sl-app-space-2) var(--sl-app-space-4);
-  border-bottom: 1px solid var(--ni-nimble-border-color);
-  background: var(--ni-nimble-header-background-color);
-}
-
-.app-title {
-  margin: 0;
-  margin-right: var(--sl-app-space-2);
-  font: var(--sl-app-font-title);
-  color: var(--ni-nimble-title-font-color);
-}
-
-.nav-links {
-  display: flex;
-  gap: var(--sl-app-space-1);
+.app-tabs {
+  flex-shrink: 0;
+  padding: 4px 0 4px 8px;
+  background: var(--ni-nimble-application-background-color);
 }
 
 .app-content {

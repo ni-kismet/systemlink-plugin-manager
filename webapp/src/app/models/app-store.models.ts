@@ -56,7 +56,7 @@ export interface InstalledApp {
   updatedAt: string | null;
 }
 
-/** Per-workspace install manifest stored in the File Service. */
+/** Per-workspace install manifest stored in the Tag Service. */
 export interface InstallManifest {
   version: number;
   config: ManifestConfig;
@@ -74,6 +74,21 @@ export interface ManifestConfig {
 export interface WorkspaceInfo {
   id: string;
   name: string;
+}
+
+/** A manifest loaded from a specific readable workspace. */
+export interface WorkspaceManifest {
+  workspaceId: string;
+  workspaceName: string;
+  isCurrentWorkspace: boolean;
+  manifest: InstallManifest;
+}
+
+/** An installed app annotated with its owning workspace. */
+export interface WorkspaceInstallation extends InstalledApp {
+  workspaceId: string;
+  workspaceName: string;
+  isCurrentWorkspace: boolean;
 }
 
 /** Combined view: catalog package + install status across workspaces. */

@@ -1,4 +1,5 @@
 h2 {
+  margin-top: var(--sl-app-space-6);
   margin-bottom: var(--sl-app-space-4);
   font: var(--sl-app-font-title);
 }
@@ -18,6 +19,11 @@ h2 {
 
 .settings-section {
   margin-bottom: calc(var(--sl-app-space-6) + var(--sl-app-space-2));
+
+  p {
+    margin: var(--sl-app-space-2) 0;
+    font: var(--sl-app-font-body);
+  }
 
   h3 {
     margin-bottom: var(--sl-app-space-3);

@@ -1,16 +1,17 @@
 <app-permission-banner [hasPermission]="hasPermission"></app-permission-banner>
 
 <div class="catalog-toolbar">
-  <nimble-text-field
-    placeholder="Search apps…"
-    [(ngModel)]="searchTerm"
-    (ngModelChange)="applyFilters()">
-  </nimble-text-field>
-
   <nimble-select [(ngModel)]="selectedCategory" (ngModelChange)="applyFilters()">
     <nimble-list-option [value]="''">All Categories</nimble-list-option>
     <nimble-list-option *ngFor="let cat of categories" [value]="cat">{{ cat }}</nimble-list-option>
   </nimble-select>
+
+  <nimble-text-field
+    placeholder="Search apps…"
+    [(ngModel)]="searchTerm"
+    (ngModelChange)="applyFilters()">
+    <nimble-icon-magnifying-glass slot="start"></nimble-icon-magnifying-glass>
+  </nimble-text-field>
 </div>
 
 <div *ngIf="loading" class="loading-container">

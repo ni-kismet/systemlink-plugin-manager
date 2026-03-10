@@ -20,9 +20,10 @@ import {
   NimbleMenuModule,
   NimbleMenuItemModule,
   NimbleToolbarModule,
-  NimbleBreadcrumbModule,
-  NimbleBreadcrumbItemModule,
   NimbleAnchorButtonModule,
+  NimbleAnchorTabsModule,
+  NimbleAnchorTabModule,
+  NimbleIconMagnifyingGlassModule,
 } from '@ni/nimble-angular';
 import { NimbleLabelProviderCoreModule } from '@ni/nimble-angular/label-provider/core';
 import { NimbleCardModule } from '@ni/nimble-angular/card';
@@ -70,9 +71,10 @@ import { PermissionBannerComponent } from './shared/permission-banner.component'
     NimbleMenuModule,
     NimbleMenuItemModule,
     NimbleToolbarModule,
-    NimbleBreadcrumbModule,
-    NimbleBreadcrumbItemModule,
     NimbleAnchorButtonModule,
+    NimbleAnchorTabsModule,
+    NimbleAnchorTabModule,
+    NimbleIconMagnifyingGlassModule,
   ],
   providers: [
     { provide: APP_BASE_HREF, useValue: '/' },

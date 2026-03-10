@@ -21,7 +21,7 @@
 </nimble-banner>
 
 <div *ngIf="!loading && entries.length === 0 && !error" class="empty-state">
-  <p>No apps installed yet.</p>
+  <p>No apps installed in any readable workspace yet.</p>
   <nimble-button appearance="outline" (click)="router.navigate(['/catalog'])">Browse Catalog</nimble-button>
 </div>
 
@@ -30,14 +30,20 @@
     <div class="row-info">
       <span class="row-name">{{ entry.catalogPkg?.displayName ?? entry.packageName }}</span>
       <span class="row-version">
-        v{{ entry.installed.version }}
+        {{ getInstalledVersionLabel(entry) }}
         <span *ngIf="entry.upgradeAvailable && entry.catalogPkg" class="upgrade-badge">
           → v{{ entry.catalogPkg.version }}
         </span>
       </span>
       <span class="row-meta">
-        {{ entry.installed.type }} · Installed {{ entry.installed.installedAt | date:'mediumDate' }}
+        {{ entry.installations[0].type }} · {{ getWorkspaceSummary(entry) }} · Last activity {{ getLastActivity(entry) | date:'mediumDate' }}
       </span>
+      <div class="workspace-list">
+        <span *ngFor="let installation of entry.installations" class="workspace-pill" [class.current]="installation.isCurrentWorkspace">
+          {{ installation.workspaceName }}
+          <span *ngIf="installation.isCurrentWorkspace">(current)</span>
+        </span>
+      </div>
     </div>
     <div class="row-actions" *ngIf="hasPermission">
       <nimble-button
@@ -51,7 +57,7 @@
         appearance="ghost"
         (click)="uninstall(entry); $event.stopPropagation()"
         [disabled]="actionLoading === entry.packageName">
-        Uninstall
+        Uninstall All
       </nimble-button>
     </div>
   </div>

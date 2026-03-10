@@ -1,20 +1,11 @@
 <nimble-theme-provider [theme]="currentTheme">
   <nimble-label-provider-core withDefaults></nimble-label-provider-core>
   <div class="app-shell">
-    <nav class="app-nav">
-      <h1 class="app-title">App Store</h1>
-      <div class="nav-links">
-        <nimble-anchor-button appearance="ghost" nimbleRouterLink="/catalog" routerLinkActive="active">
-          Catalog
-        </nimble-anchor-button>
-        <nimble-anchor-button appearance="ghost" nimbleRouterLink="/installed" routerLinkActive="active">
-          Installed
-        </nimble-anchor-button>
-        <nimble-anchor-button appearance="ghost" nimbleRouterLink="/settings" routerLinkActive="active">
-          Settings
-        </nimble-anchor-button>
-      </div>
-    </nav>
+    <nimble-anchor-tabs class="app-tabs" [activeid]="activeTabId">
+      <nimble-anchor-tab id="catalog" nimbleRouterLink="/catalog">Catalog</nimble-anchor-tab>
+      <nimble-anchor-tab id="installed" nimbleRouterLink="/installed">Installed</nimble-anchor-tab>
+      <nimble-anchor-tab id="settings" nimbleRouterLink="/settings">Settings</nimble-anchor-tab>
+    </nimble-anchor-tabs>
     <main class="app-content">
       <router-outlet></router-outlet>
     </main>

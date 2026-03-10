@@ -57,9 +57,11 @@ export class SettingsComponent implements OnInit {
     this.refreshResult = '';
     this.error = '';
     try {
-      await this.appStoreService.checkForUpdates(this.manifest.config.feedId);
-      await this.appStoreService.applyUpdates(this.manifest.config.feedId);
-      this.refreshResult = 'Feed refreshed successfully.';
+      const resourceIds = await this.appStoreService.checkForUpdates(this.manifest.config.feedId);
+      await this.appStoreService.applyUpdates(this.manifest.config.feedId, resourceIds);
+      this.refreshResult = resourceIds.length > 0
+        ? 'Feed refreshed successfully.'
+        : 'Feed is already up to date.';
     } catch (e: any) {
       this.error = `Feed refresh failed: ${e.message}`;
     } finally {

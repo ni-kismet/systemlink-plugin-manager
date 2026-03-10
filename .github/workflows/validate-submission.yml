@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -63,6 +65,48 @@ jobs:
               sys.exit(1)
           print('All manifests valid.')
           "
+
+      - name: Validate .nipkg artifacts
+        run: |
+          set -euo pipefail
+          DIRS='${{ steps.changed.outputs.dirs }}'
+          for dir in $DIRS; do
+            [ -z "$dir" ] && continue
+
+            NIPKG=$(python - "$dir" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          submission_dir = Path(sys.argv[1])
+          manifest = json.loads((submission_dir / 'manifest.json').read_text())
+          explicit = manifest.get('nipkgFile')
+          if explicit:
+              candidate = submission_dir / explicit
+              print(candidate if candidate.is_file() else '')
+          else:
+              matches = sorted(submission_dir.glob('*.nipkg'))
+              print(matches[0] if len(matches) == 1 else '')
+          PY
+            )
+
+            if [ -z "$NIPKG" ] || [ ! -f "$NIPKG" ]; then
+              echo "✗ $dir must include exactly one .nipkg artifact (or a valid nipkgFile entry)" >&2
+              exit 1
+            fi
+
+            if ! file "$NIPKG" | grep -q 'Debian binary package'; then
+              echo "✗ $NIPKG is not a Debian-style .nipkg package" >&2
+              exit 1
+            fi
+
+            MEMBERS=$(ar t "$NIPKG")
+            echo "$MEMBERS" | grep -qx 'debian-binary' || { echo "✗ $NIPKG is missing debian-binary" >&2; exit 1; }
+            echo "$MEMBERS" | grep -Eq '^control\.tar\.(gz|xz|zst)$' || { echo "✗ $NIPKG is missing control.tar.*" >&2; exit 1; }
+            echo "$MEMBERS" | grep -Eq '^data\.tar\.(gz|xz|zst)$' || { echo "✗ $NIPKG is missing data.tar.*" >&2; exit 1; }
+
+            echo "✓ $NIPKG looks like a valid .nipkg archive"
+          done
 
       - name: Run full validation
         run: python scripts/rebuild_index.py --validate-only
