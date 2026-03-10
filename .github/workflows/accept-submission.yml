@@ -1,0 +1,59 @@
+name: Accept External Submission
+
+on:
+  repository_dispatch:
+    types: [submit-app]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-submission-pr:
+    name: Create submission PR
+    runs-on: ubuntu-latest
+    env:
+      # Extract payload fields into env vars to avoid inline expression injection
+      SOURCE_REPO: ${{ github.event.client_payload.source_repo }}
+      RELEASE_TAG: ${{ github.event.client_payload.release_tag }}
+      ARTIFACT_NAME: ${{ github.event.client_payload.artifact_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install jsonschema
+
+      - name: Write manifest from payload
+        env:
+          MANIFEST_JSON: ${{ toJSON(github.event.client_payload.manifest) }}
+        run: |
+          python3 -c "
+          import json, os, sys
+
+          manifest = json.loads(os.environ['MANIFEST_JSON'])
+          pkg = manifest.get('package', '')
+          if not pkg:
+              print('::error::Manifest missing required field: package')
+              sys.exit(1)
+          out = f'/tmp/manifest-{pkg}.json'
+          with open(out, 'w') as f:
+              json.dump(manifest, f, indent=2)
+          print(f'Wrote manifest to {out}')
+          "
+
+      - name: Validate and create submission
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ICON_URL: ${{ github.event.client_payload.icon_url }}
+          MANIFEST_JSON: ${{ toJSON(github.event.client_payload.manifest) }}
+        run: |
+          python3 scripts/submit_package.py \
+            --manifest-json "$MANIFEST_JSON" \
+            --source-repo "$SOURCE_REPO" \
+            --release-tag "$RELEASE_TAG" \
+            --artifact-name "$ARTIFACT_NAME" \
+            --create-pr

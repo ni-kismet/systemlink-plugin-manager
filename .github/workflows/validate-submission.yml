@@ -23,9 +23,12 @@ jobs:
 
       - name: Detect changed submissions
         id: changed
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           # Find submission directories that were changed in this PR
-          DIRS=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD \
+          # Use env var to avoid script injection via branch name
+          DIRS=$(git diff --name-only --diff-filter=ACMR "origin/${BASE_REF}...HEAD" \
             | grep '^submissions/' \
             | cut -d'/' -f1-2 \
             | sort -u)
@@ -34,18 +37,25 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Validate manifests against schema
+        env:
+          CHANGED_DIRS: ${{ steps.changed.outputs.dirs }}
         run: |
           pip install jsonschema
           python -c "
-          import json, sys
+          import json, os, sys
           from jsonschema import validate, ValidationError
           from pathlib import Path
 
           schema = json.loads(Path('app-manifest.schema.json').read_text())
-          dirs = '''${{ steps.changed.outputs.dirs }}'''.strip().splitlines()
+          dirs = os.environ.get('CHANGED_DIRS', '').strip().splitlines()
           errors = []
           for d in dirs:
-              if not d.strip():
+              d = d.strip()
+              if not d:
+                  continue
+              # Validate directory name contains only safe characters
+              if not all(c.isalnum() or c in '-_./=' for c in d):
+                  errors.append(f'{d}: directory name contains invalid characters')
                   continue
               manifest_path = Path(d) / 'manifest.json'
               if not manifest_path.is_file():
@@ -67,10 +77,11 @@ jobs:
           "
 
       - name: Validate .nipkg artifacts
+        env:
+          CHANGED_DIRS: ${{ steps.changed.outputs.dirs }}
         run: |
           set -euo pipefail
-          DIRS='${{ steps.changed.outputs.dirs }}'
-          for dir in $DIRS; do
+          while IFS= read -r dir; do
             [ -z "$dir" ] && continue
 
             NIPKG=$(python - "$dir" <<'PY'
@@ -106,16 +117,17 @@ jobs:
             echo "$MEMBERS" | grep -Eq '^data\.tar\.(gz|xz|zst)$' || { echo "✗ $NIPKG is missing data.tar.*" >&2; exit 1; }
 
             echo "✓ $NIPKG looks like a valid .nipkg archive"
-          done
+          done <<< "$CHANGED_DIRS"
 
       - name: Run full validation
         run: python scripts/rebuild_index.py --validate-only
 
       - name: Check .nipkg size
+        env:
+          CHANGED_DIRS: ${{ steps.changed.outputs.dirs }}
         run: |
           MAX_SIZE=$((100 * 1024 * 1024))  # 100 MB
-          DIRS="${{ steps.changed.outputs.dirs }}"
-          for dir in $DIRS; do
+          while IFS= read -r dir; do
             [ -z "$dir" ] && continue
             for nipkg in "$dir"/*.nipkg; do
               [ -f "$nipkg" ] || continue

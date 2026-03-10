@@ -15,13 +15,15 @@ jobs:
   publish:
     name: Publish submitted package
     runs-on: ubuntu-latest
+    env:
+      SUBMISSION_NAME: ${{ inputs.submission }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Read manifest
         id: manifest
         run: |
-          DIR="submissions/${{ inputs.submission }}"
+          DIR="submissions/${SUBMISSION_NAME}"
           if [ ! -f "$DIR/manifest.json" ]; then
             echo "✗ No manifest.json found in $DIR" >&2
             exit 1
@@ -37,7 +39,7 @@ jobs:
       - name: Locate release artifact
         id: artifact
         run: |
-          DIR="submissions/${{ inputs.submission }}"
+          DIR="submissions/${SUBMISSION_NAME}"
           EXPLICIT=$(jq -r '.nipkgFile // empty' "$DIR/manifest.json")
           FOUND=""
 
@@ -52,11 +54,12 @@ jobs:
             fi
           fi
 
+          PACKAGE_NAME="${{ steps.manifest.outputs.package }}"
           if [ -n "$FOUND" ]; then
             echo "build_webapp=false" >> "$GITHUB_OUTPUT"
             echo "path=$FOUND" >> "$GITHUB_OUTPUT"
             echo "name=$(basename "$FOUND")" >> "$GITHUB_OUTPUT"
-          elif [ "${{ steps.manifest.outputs.package }}" = "systemlink-app-store" ]; then
+          elif [ "$PACKAGE_NAME" = "systemlink-app-store" ]; then
             echo "build_webapp=true" >> "$GITHUB_OUTPUT"
           else
             echo "✗ No .nipkg artifact found in $DIR. Add one to the submission or set nipkgFile." >&2
@@ -89,8 +92,8 @@ jobs:
             --build-dir webapp/dist/webapp/browser \
             --name "${{ steps.manifest.outputs.package }}" \
             --version "${{ steps.manifest.outputs.version }}" \
-            --description "$(jq -r '.description' submissions/${{ inputs.submission }}/manifest.json)" \
-            --maintainer "$(jq -r '.maintainer' submissions/${{ inputs.submission }}/manifest.json)" \
+            --description "$(jq -r '.description' "submissions/${SUBMISSION_NAME}/manifest.json")" \
+            --maintainer "$(jq -r '.maintainer' "submissions/${SUBMISSION_NAME}/manifest.json")" \
             --output-dir webapp/dist/nipkg
           NIPKG=$(find webapp/dist/nipkg -maxdepth 1 -name '*.nipkg' | head -1)
           if [ -z "$NIPKG" ]; then

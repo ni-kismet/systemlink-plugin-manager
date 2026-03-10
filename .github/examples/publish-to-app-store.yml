@@ -1,0 +1,155 @@
+# Example: Publish webapp to SystemLink App Store
+#
+# This workflow builds one or more webapps and submits them to the
+# systemlink-app-store repository via repository_dispatch.
+#
+# Prerequisites:
+#   1. Create a PAT (classic) with `repo` scope that can trigger workflows
+#      on the systemlink-app-store repo.  Store it as a repository secret
+#      named APP_STORE_DISPATCH_TOKEN.
+#   2. Each webapp directory must contain a `manifest.json` that conforms to
+#      the app-manifest.schema.json in systemlink-app-store.
+#
+# Adjust the matrix entries to match your actual webapp projects.
+
+name: Publish to App Store
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'App to publish (blank = all)'
+        required: false
+        type: string
+
+permissions:
+  contents: write  # needed to attach .nipkg to release
+
+jobs:
+  build-and-submit:
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - name: asset-dashboard
+            path: webapps/asset-dashboard
+          - name: calibration-tracker
+            path: webapps/calibration-tracker
+          - name: test-result-viewer
+            path: webapps/test-result-viewer
+          - name: system-health-monitor
+            path: webapps/system-health-monitor
+          - name: production-metrics
+            path: webapps/production-metrics
+        # Filter to a single app when triggered manually
+        exclude: ${{ github.event.inputs.app && fromJSON(format('[{{"name":"{0}"}}]', github.event.inputs.app)) || fromJSON('[]') }}
+
+    runs-on: ubuntu-latest
+    name: Build ${{ matrix.app.name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Read manifest
+        id: manifest
+        working-directory: ${{ matrix.app.path }}
+        run: |
+          PACKAGE=$(jq -r '.package' manifest.json)
+          VERSION=$(jq -r '.version' manifest.json)
+          DISPLAY_NAME=$(jq -r '.displayName' manifest.json)
+          echo "package=$PACKAGE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "display_name=$DISPLAY_NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=${PACKAGE}-v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.app.path }}
+        run: npm ci
+
+      - name: Build
+        working-directory: ${{ matrix.app.path }}
+        run: npm run build
+
+      # Package the built webapp as a .nipkg
+      # Adjust --build-dir to match your project's output directory
+      - name: Package as .nipkg
+        id: package
+        working-directory: ${{ matrix.app.path }}
+        run: |
+          NIPKG_NAME="${{ steps.manifest.outputs.package }}_${{ steps.manifest.outputs.version }}_windows_all.nipkg"
+          npx -y @ni-kismet/sl-webapp-nipkg@0.3.0 build \
+            --build-dir dist/browser \
+            --name "${{ steps.manifest.outputs.package }}" \
+            --version "${{ steps.manifest.outputs.version }}" \
+            --description "$(jq -r '.description' manifest.json)" \
+            --maintainer "$(jq -r '.maintainer' manifest.json)" \
+            --output-dir dist/nipkg
+          NIPKG_PATH=$(find dist/nipkg -maxdepth 1 -name '*.nipkg' | head -1)
+          echo "path=$NIPKG_PATH" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$NIPKG_PATH")" >> "$GITHUB_OUTPUT"
+
+      # Attach .nipkg to a GitHub Release in this repository
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: ${{ matrix.app.path }}
+        run: |
+          TAG="${{ steps.manifest.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${{ steps.package.outputs.path }}" --clobber
+          else
+            gh release create "$TAG" \
+              "${{ steps.package.outputs.path }}" \
+              --title "${{ steps.manifest.outputs.display_name }} v${{ steps.manifest.outputs.version }}" \
+              --notes "Release of ${{ steps.manifest.outputs.display_name }} v${{ steps.manifest.outputs.version }}" \
+              --latest=false
+          fi
+
+          # Also upload icon if present
+          for icon in icon.svg icon.png; do
+            [ -f "$icon" ] && gh release upload "$TAG" "$icon" --clobber || true
+          done
+
+      # Trigger submission PR in systemlink-app-store
+      - name: Submit to App Store
+        env:
+          APP_STORE_TOKEN: ${{ secrets.APP_STORE_DISPATCH_TOKEN }}
+        working-directory: ${{ matrix.app.path }}
+        run: |
+          MANIFEST=$(cat manifest.json)
+          ICON_FILE=""
+          [ -f icon.svg ] && ICON_FILE="icon.svg"
+          [ -f icon.png ] && ICON_FILE="icon.png"
+
+          curl -fsSL \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $APP_STORE_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/ni-kismet/systemlink-app-store/dispatches" \
+            -d "$(jq -n \
+              --arg event_type "submit-app" \
+              --argjson manifest "$MANIFEST" \
+              --arg source_repo "${{ github.repository }}" \
+              --arg release_tag "${{ steps.manifest.outputs.tag }}" \
+              --arg artifact_name "${{ steps.package.outputs.name }}" \
+              --arg icon_url "$ICON_FILE" \
+              '{
+                event_type: $event_type,
+                client_payload: {
+                  manifest: $manifest,
+                  source_repo: $source_repo,
+                  release_tag: $release_tag,
+                  artifact_name: $artifact_name,
+                  icon_url: $icon_url
+                }
+              }'
+            )"
+
+          echo "✓ Dispatched submission for ${{ steps.manifest.outputs.package }} v${{ steps.manifest.outputs.version }}"

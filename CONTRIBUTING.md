@@ -131,6 +131,70 @@ To release a new version:
 2. Replace the `.nipkg` file with the new version
 3. Submit a new Pull Request
 
+---
+
+## Automated submissions from other repositories
+
+If your webapps live in a separate repository (e.g., `systemlink-enterprise-examples`), you can automate the submission process so that building a new version automatically creates a PR in this repository.
+
+### How it works
+
+```
+Source repo (your webapps)              systemlink-app-store
+─────────────────────────               ────────────────────
+1. Build webapp (ng build)
+2. Package as .nipkg
+3. Attach .nipkg to GitHub Release
+4. Trigger repository_dispatch ────────► 5. accept-submission.yml runs
+                                         6. Downloads .nipkg from your release
+                                         7. Validates manifest against schema
+                                         8. Creates branch submit/<pkg>-v<ver>
+                                         9. Opens PR for review
+```
+
+### Setup
+
+1. **Create a PAT** (classic) with `repo` scope that has access to the `systemlink-app-store` repository. Store it as a secret named `APP_STORE_DISPATCH_TOKEN` in your source repository.
+
+2. **Add a `manifest.json`** next to each webapp project in your source repo. It must conform to [`app-manifest.schema.json`](app-manifest.schema.json).
+
+3. **Add the publish workflow** to your source repository. See [`.github/examples/publish-to-app-store.yml`](.github/examples/publish-to-app-store.yml) for a complete, ready-to-use example with a 5-app matrix build.
+
+### Manual cross-repo submission (local)
+
+You can also use the `submit_package.py` script directly:
+
+```bash
+# From a clone of systemlink-app-store
+python scripts/submit_package.py \
+    --manifest path/to/manifest.json \
+    --nipkg path/to/my-app_1.0.0_windows_all.nipkg
+
+# This creates a local branch submit/my-app-v1.0.0
+# Push and open a PR:
+git push origin submit/my-app-v1.0.0
+```
+
+Or download from a GitHub Release:
+
+```bash
+python scripts/submit_package.py \
+    --manifest-json '{"package":"my-app","version":"1.0.0",...}' \
+    --source-repo yourorg/your-repo \
+    --release-tag my-app-v1.0.0 \
+    --artifact-name my-app_1.0.0_windows_all.nipkg \
+    --create-pr
+```
+
+### Security notes
+
+- The `repository_dispatch` event requires an authenticated API call — only users with the PAT can trigger it.
+- The submission PR goes through the same CI validation and manual review as any other submission.
+- The `submit_package.py` script only downloads from `github.com` release asset URLs to prevent SSRF.
+- No code from the payload is executed — only metadata and binary artifacts are handled.
+
+---
+
 ## Delisting / Deprecation
 
 To request removal of your app, open an issue or submit a PR removing your submission directory. Deprecation is handled by adding `AppStoreDeprecated: yes` to the metadata — the app will show a warning badge but remain visible during a grace period.
