@@ -124,14 +124,23 @@ import { NimbleButtonModule } from "@ni/nimble-angular";
 Use for top-level page navigation. Bind `[activeid]` from component state; update it by tracking `NavigationEnd` router events.
 
 ```typescript
-import { NimbleAnchorTabsModule, NimbleAnchorTabModule } from "@ni/nimble-angular";
+import {
+  NimbleAnchorTabsModule,
+  NimbleAnchorTabModule,
+} from "@ni/nimble-angular";
 ```
 
 ```html
 <nimble-anchor-tabs [activeid]="activeTabId">
-  <nimble-anchor-tab id="catalog" nimbleRouterLink="/catalog">Catalog</nimble-anchor-tab>
-  <nimble-anchor-tab id="installed" nimbleRouterLink="/installed">Installed</nimble-anchor-tab>
-  <nimble-anchor-tab id="settings" nimbleRouterLink="/settings">Settings</nimble-anchor-tab>
+  <nimble-anchor-tab id="catalog" nimbleRouterLink="/catalog"
+    >Catalog</nimble-anchor-tab
+  >
+  <nimble-anchor-tab id="installed" nimbleRouterLink="/installed"
+    >Installed</nimble-anchor-tab
+  >
+  <nimble-anchor-tab id="settings" nimbleRouterLink="/settings"
+    >Settings</nimble-anchor-tab
+  >
 </nimble-anchor-tabs>
 ```
 
@@ -158,7 +167,11 @@ import { NimbleTextFieldModule } from "@ni/nimble-angular";
 </nimble-text-field>
 
 <!-- With icon prefix (slot="start") -->
-<nimble-text-field placeholder="Search…" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()">
+<nimble-text-field
+  placeholder="Search…"
+  [(ngModel)]="searchTerm"
+  (ngModelChange)="applyFilters()"
+>
   <nimble-icon-magnifying-glass slot="start"></nimble-icon-magnifying-glass>
 </nimble-text-field>
 ```
@@ -190,7 +203,9 @@ import { NimbleSelectModule, NimbleListOptionModule } from "@ni/nimble-angular";
 
 <!-- With built-in filter (useful for long lists) -->
 <nimble-select filter-mode="standard" [(ngModel)]="selectedWorkspace">
-  <nimble-list-option *ngFor="let ws of workspaces" [value]="ws.id">{{ ws.name }}</nimble-list-option>
+  <nimble-list-option *ngFor="let ws of workspaces" [value]="ws.id"
+    >{{ ws.name }}</nimble-list-option
+  >
 </nimble-select>
 ```
 
@@ -266,7 +281,13 @@ import { NimbleDialogModule } from "@ni/nimble-angular";
 
   <!-- Multiple slot="footer" elements are displayed side by side -->
   <nimble-button slot="footer" (click)="closeDialog()">Cancel</nimble-button>
-  <nimble-button slot="footer" appearance="block" appearance-variant="accent" (click)="confirm()">Confirm</nimble-button>
+  <nimble-button
+    slot="footer"
+    appearance="block"
+    appearance-variant="accent"
+    (click)="confirm()"
+    >Confirm</nimble-button
+  >
 </nimble-dialog>
 ```
 
@@ -326,11 +347,15 @@ For any clickable tile or row, use Nimble tokens directly (not the `--sl-app-col
   border-radius: var(--ni-nimble-small-padding, 4px);
   cursor: pointer;
   // Transition both shadow and border for a polished hover
-  transition: box-shadow var(--ni-nimble-medium-delay, 0.15s) ease,
-              border-color var(--ni-nimble-medium-delay, 0.15s) ease;
+  transition:
+    box-shadow var(--ni-nimble-medium-delay, 0.15s) ease,
+    border-color var(--ni-nimble-medium-delay, 0.15s) ease;
 
   &:hover {
-    box-shadow: var(--ni-nimble-elevation-2-box-shadow, 0 2px 8px rgba(0, 0, 0, 0.12));
+    box-shadow: var(
+      --ni-nimble-elevation-2-box-shadow,
+      0 2px 8px rgba(0, 0, 0, 0.12)
+    );
     border-color: var(--ni-nimble-border-hover-color);
   }
 }

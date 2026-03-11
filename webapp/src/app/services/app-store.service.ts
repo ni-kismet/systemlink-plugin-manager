@@ -14,10 +14,12 @@ import {
 import { createClient as createFeedsClient, createConfig as createFeedsConfig } from 'nisystemlink-clients-ts/feeds/client';
 import {
   getNifeedV1Feeds,
+  getNifeedV1FeedsByFeedIdPackages,
   postNifeedV1ReplicateFeed,
   postNifeedV1FeedsByFeedIdCheckForUpdates,
   postNifeedV1FeedsByFeedIdApplyUpdates,
 } from 'nisystemlink-clients-ts/feeds';
+import type { Package } from 'nisystemlink-clients-ts/feeds';
 import { createClient as createTagClient, createConfig as createTagConfig } from 'nisystemlink-clients-ts/tags/client';
 import { createOrReplaceTagInWorkspace, updateTagCurrentValuesInWorkspace, getTagWithValueInWorkspace, queryTagsWithValues } from 'nisystemlink-clients-ts/tags';
 import { createClient as createUserClient, createConfig as createUserConfig } from 'nisystemlink-clients-ts/user/client';
@@ -62,16 +64,19 @@ export class AppStoreService {
     return feed?.id ? { id: feed.id, name: feed.name! } : null;
   }
 
-  /** List all packages in a feed by fetching and parsing the replicated Packages index. */
+  /** List all packages in a feed via the Feed Service packages API.
+   * Reads first-class fields from metadata.* and custom App Store fields from
+   * metadata.attributes, per the feed format spec. */
   async listPackages(feedId: string): Promise<AppPackage[]> {
-    const url = `${this.origin}/nifeed/v1/feeds/${encodeURIComponent(feedId)}/files/Packages`;
-    const res = await fetch(url, { credentials: 'include' });
-    if (!res.ok) throw new Error(`Failed to fetch Packages index: HTTP ${res.status}`);
-    const text = await res.text();
+    const { data, error } = await getNifeedV1FeedsByFeedIdPackages({
+      client: this.feedsClient,
+      path: { feedId },
+    });
+    if (error) throw new Error(`Failed to list packages: ${JSON.stringify(error)}`);
 
-    const packages = this.parsePackagesIndex(text)
-      .filter(s => this.isUserVisibleWebapp(s))
-      .map(s => this.mapStanza(s));
+    const packages = (data?.packages ?? [])
+      .filter(p => this.isUserVisibleWebappResource(p))
+      .map(p => this.mapPackageResource(p));
 
     return this.selectLatestPackages(packages);
   }
@@ -550,47 +555,45 @@ export class AppStoreService {
     });
   }
 
-  /** Map a parsed Packages index stanza to an AppPackage. */
-  private mapStanza(s: Record<string, string>): AppPackage {
+  /** Map a Feed Service Package resource to an AppPackage.
+   * First-class fields come from metadata.*, custom App Store fields from metadata.attributes. */
+  private mapPackageResource(pkg: Package): AppPackage {
+    const m = pkg.metadata ?? {};
+    const attrs = m.attributes ?? {};
     return {
-      packageName: s['Package'] ?? '',
-      version: s['Version'] ?? s['DisplayVersion'] ?? '',
-      displayName: s['DisplayName'] ?? s['Package'] ?? '',
-      description: s['Description'] ?? '',
-      section: s['Section'] ?? '',
-      maintainer: s['Maintainer'] ?? '',
-      homepage: s['Homepage'] ?? '',
-      icon: s['AppStoreIcon'] ?? '',
+      packageName: m.packageName ?? '',
+      version: m.version ?? attrs['DisplayVersion'] ?? '',
+      displayName: attrs['DisplayName'] ?? m.packageName ?? '',
+      description: m.description ?? '',
+      section: m.section ?? '',
+      maintainer: m.maintainer ?? '',
+      homepage: m.homepage ?? '',
+      icon: attrs['AppStoreIcon'] ?? '',
       screenshots: [
-        s['AppStoreScreenshot1'],
-        s['AppStoreScreenshot2'],
-        s['AppStoreScreenshot3'],
+        attrs['AppStoreScreenshot1'],
+        attrs['AppStoreScreenshot2'],
+        attrs['AppStoreScreenshot3'],
       ].filter((v): v is string => !!v),
-      category: s['AppStoreCategory'] ?? '',
-      type: s['AppStoreType'] ?? 'webapp',
-      author: s['AppStoreAuthor'] ?? '',
-      license: s['AppStoreLicense'] ?? '',
-      tags: s['AppStoreTags'] ?? '',
-      repo: s['AppStoreRepo'] ?? '',
-      minServerVersion: s['AppStoreMinServerVersion'] ?? '',
-      size: s['Size'] ? parseInt(s['Size'], 10) : 0,
-      sha256: s['SHA256'] ?? '',
-      filename: s['Filename'] ?? '',
-      feedPackageId: undefined,
+      category: attrs['AppStoreCategory'] ?? '',
+      type: attrs['AppStoreType'] ?? 'webapp',
+      author: attrs['AppStoreAuthor'] ?? '',
+      license: attrs['AppStoreLicense'] ?? '',
+      tags: m.tags ?? attrs['AppStoreTags'] ?? '',
+      repo: attrs['AppStoreRepo'] ?? m.homepage ?? '',
+      minServerVersion: attrs['AppStoreMinServerVersion'] ?? '',
+      size: m.size ?? 0,
+      sha256: attrs['SHA256'] ?? '',
+      filename: m.fileName ?? '',
+      feedPackageId: pkg.id ?? undefined,
     };
   }
 
-  private isUserVisibleWebapp(s: Record<string, string>): boolean {
-    if (s['UserVisible'] === 'no') {
-      return false;
-    }
-
-    const packageType = s['AppStoreType']?.trim().toLowerCase();
-    if (packageType) {
-      return packageType === 'webapp';
-    }
-
-    return (s['Section'] ?? '').trim() === 'WebApps';
+  private isUserVisibleWebappResource(pkg: Package): boolean {
+    const attrs = pkg.metadata?.attributes ?? {};
+    if (attrs['UserVisible'] === 'no') return false;
+    const packageType = attrs['AppStoreType']?.trim().toLowerCase();
+    if (packageType) return packageType === 'webapp';
+    return (pkg.metadata?.section ?? '').trim() === 'WebApps';
   }
 
   private selectLatestPackages(packages: AppPackage[]): AppPackage[] {

@@ -66,30 +66,33 @@ Publishing is **curated**: all submissions go through a PR-based review process 
 
 The catalog is a standard NI Package Manager feed: a `Packages` index file (RFC 822-style, blank-line-delimited stanzas) alongside the `.nipkg` binary files. This is the same format used by `download.ni.com` and already understood by SystemLink's Feed Service.
 
-Each stanza in `Packages` contains at minimum:
+#### First-class nipkg control fields
 
-| Field               | Purpose                                                                                |
-| ------------------- | -------------------------------------------------------------------------------------- |
-| `Package`           | Unique package identifier, first-come-first-served (e.g., `mycompany-asset-dashboard`) |
-| `Version`           | **Semantic version** string (`MAJOR.MINOR.PATCH`, e.g., `1.2.0`)                       |
-| `Architecture`      | Always `windows_all` for App Store packages                                            |
-| `DisplayName`       | Human-readable app name shown in the store UI                                          |
-| `Description`       | Multi-line description of the app (≥ 20 characters)                                    |
-| `Section`           | Category for filtering (e.g., `WebApps`, `Notebooks`, `Add-Ons`)                       |
-| `Maintainer`        | Author name and email                                                                  |
-| `Homepage`          | Link to project/documentation                                                          |
-| `Filename`          | URL to the `.nipkg` file hosted as a GitHub Release asset                              |
-| `Size`              | File size in bytes (max **100 MB**)                                                    |
-| `MD5sum` / `SHA256` | Integrity checksums                                                                    |
-| `UserVisible`       | `yes` for end-user apps (filter out infrastructure packages)                           |
-| `DisplayVersion`    | Friendly version string (e.g., `1.2.0`)                                                |
+These fields are written to the nipkg control file and mapped by the Feed Service to **first-class** `metadata.*` properties on the package resource. Consumers should read them from the top-level `metadata` object, **not** from `metadata.attributes`.
 
-#### App-Store-specific custom attributes
+| Control Field       | Feed Service `metadata.*` | Purpose                                                                                |
+| ------------------- | ------------------------- | -------------------------------------------------------------------------------------- |
+| `Package`           | `packageName`             | Unique package identifier, first-come-first-served (e.g., `mycompany-asset-dashboard`) |
+| `Version`           | `version`                 | **Semantic version** string (`MAJOR.MINOR.PATCH`, e.g., `1.2.0`)                       |
+| `Architecture`      | `architecture`            | Always `windows_all` for App Store packages                                            |
+| `Description`       | `description`             | Multi-line description of the app (≥ 20 characters)                                    |
+| `Section`           | `section`                 | Category for filtering (e.g., `WebApps`, `Notebooks`, `Add-Ons`)                       |
+| `Maintainer`        | `maintainer`              | Author name and email                                                                  |
+| `Homepage`          | `homepage`                | Link to project/documentation / source repository                                      |
+| `Tags`              | `tags`                    | Comma-separated search tags                                                            |
+| `Filename`          | `fileName`                | URL to the `.nipkg` file hosted as a GitHub Release asset                              |
+| `Size`              | `size`                    | File size in bytes (max **100 MB**)                                                    |
+| `MD5sum` / `SHA256` | —                         | Integrity checksums (stored in attributes)                                             |
 
-We should define additional metadata fields (stored in the `attributes` map when replicated via the Feed Service API) to support rich catalog browsing:
+#### App Store custom attributes
+
+These fields are stored in the nipkg control file but the Feed Service places them in the `metadata.attributes` map. They provide rich catalog browsing metadata that is specific to the App Store.
 
 | Custom Attribute           | Purpose                                                                                                                              | Example                                     |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| `DisplayName`              | Human-readable app name shown in the store UI                                                                                        | `Asset Tracker`                             |
+| `UserVisible`              | `yes` for end-user apps (filter out infrastructure packages)                                                                         | `yes`                                       |
+| `DisplayVersion`           | Friendly version string (same as `Version`)                                                                                          | `1.2.0`                                     |
 | `AppStoreCategory`         | Fine-grained category                                                                                                                | `Dashboard`, `Data Analysis`, `Integration` |
 | `AppStoreScreenshot1`      | **Base64-encoded** screenshot image (PNG, max 800x600). **Max 3 screenshots** per app (`AppStoreScreenshot1`–`AppStoreScreenshot3`). | `data:image/png;base64,iVBOR...`            |
 | `AppStoreScreenshot2`      | Second screenshot (optional)                                                                                                         | `data:image/png;base64,...`                 |
@@ -97,14 +100,16 @@ We should define additional metadata fields (stored in the `attributes` map when
 | `AppStoreIcon`             | **Base64-encoded** app icon (SVG or PNG, max 128x128)                                                                                | `data:image/svg+xml;base64,PH...`           |
 | `AppStoreAuthor`           | Display author name                                                                                                                  | `Acme Corp`                                 |
 | `AppStoreMinServerVersion` | Minimum SystemLink server version                                                                                                    | `2024 Q4`                                   |
-| `AppStoreType`             | Resource type installed                                                                                                              | `webapp`, `notebook`, `routine`, `bundle`   |
-| `AppStoreTags`             | Comma-separated search tags                                                                                                          | `assets,calibration,dashboard`              |
-| `AppStoreRepo`             | Source code repository URL                                                                                                           | `https://github.com/acme/asset-dash`        |
+| `AppStoreType`             | Resource type installed                                                                                                              | `webapp`, `bundle`                          |
+| `AppStoreTags`             | Comma-separated search tags (mirrors `Tags` for attribute-only consumers)                                                            | `assets,calibration,dashboard`              |
+| `AppStoreRepo`             | Source code repository URL (mirrors `Homepage` for attribute-only consumers)                                                         | `https://github.com/acme/asset-dash`        |
 | `AppStoreLicense`          | License identifier (required)                                                                                                        | `MIT`, `Apache-2.0`, `Proprietary`          |
 
 > **Why base64?** CSP prevents the webapp from loading images from external origins (GitHub). Base64-encoding icons and screenshots directly in the package `attributes` ensures they survive feed replication and are available to the webapp via the Feed Service API without any external requests. This does increase the `Packages` file size (several megabytes is acceptable), but keeps the architecture simple and CSP-compliant.
 >
 > **Screenshots are capped at 3 per app** to limit `Packages` file growth. The compressed `Packages.gz` should be used by default for feed replication to reduce bandwidth.
+>
+> **First-class vs. attributes**: The Feed Service automatically maps standard nipkg control fields (`Package`, `Version`, `Description`, `Section`, `Maintainer`, `Homepage`, `Tags`) to first-class `metadata` properties. Consumers (webapp, CLI) should prefer reading from the first-class properties. Fields that don't have a first-class mapping (`DisplayName`, `AppStore*`) go into `metadata.attributes` and must be read from there.
 
 ### 3.2 Repository structure
 
