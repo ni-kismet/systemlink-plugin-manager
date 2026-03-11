@@ -95,7 +95,7 @@ Simple string column. Import: `NimbleTableColumnTextModule` from `@ni/nimble-ang
 ## nimble-button
 
 ```typescript
-import { NimbleButtonModule } from "@ni/nimble-angular/button";
+import { NimbleButtonModule } from "@ni/nimble-angular";
 ```
 
 ```html
@@ -119,39 +119,82 @@ import { NimbleButtonModule } from "@ni/nimble-angular/button";
 
 ---
 
-## nimble-text-field
+## nimble-anchor-tabs + nimble-anchor-tab
+
+Use for top-level page navigation. Bind `[activeid]` from component state; update it by tracking `NavigationEnd` router events.
 
 ```typescript
-import { NimbleTextFieldModule } from "@ni/nimble-angular/text-field";
+import { NimbleAnchorTabsModule, NimbleAnchorTabModule } from "@ni/nimble-angular";
 ```
 
 ```html
+<nimble-anchor-tabs [activeid]="activeTabId">
+  <nimble-anchor-tab id="catalog" nimbleRouterLink="/catalog">Catalog</nimble-anchor-tab>
+  <nimble-anchor-tab id="installed" nimbleRouterLink="/installed">Installed</nimble-anchor-tab>
+  <nimble-anchor-tab id="settings" nimbleRouterLink="/settings">Settings</nimble-anchor-tab>
+</nimble-anchor-tabs>
+```
+
+Track active tab in the component (see `SKILL.md → Step 9` for full `NavigationEnd` subscription pattern).
+
+> Do not use `<nimble-tabs>` + `<nimble-tab-panel>` for navigation — that pattern is for tabbed content within a single page, not routing.
+
+---
+
+## nimble-text-field
+
+```typescript
+import { NimbleTextFieldModule } from "@ni/nimble-angular";
+```
+
+```html
+<!-- Basic -->
 <nimble-text-field
   [(ngModel)]="filterValue"
   placeholder="Enter filter..."
-  (change)="onFilterChange()"
+  (ngModelChange)="onFilterChange()"
 >
   Filter
 </nimble-text-field>
+
+<!-- With icon prefix (slot="start") -->
+<nimble-text-field placeholder="Search…" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()">
+  <nimble-icon-magnifying-glass slot="start"></nimble-icon-magnifying-glass>
+</nimble-text-field>
 ```
+
+Import icon modules from the **main `@ni/nimble-angular` barrel** — icon-specific sub-paths do not exist:
+
+```typescript
+import { NimbleIconMagnifyingGlassModule } from "@ni/nimble-angular";
+```
+
+> Use `(ngModelChange)` rather than `(change)` for reactive value handling. `(change)` fires on blur only; `(ngModelChange)` fires on every keystroke.
 
 ---
 
 ## nimble-select + nimble-list-option
 
 ```typescript
-import { NimbleSelectModule } from "@ni/nimble-angular/select";
-import { NimbleListOptionModule } from "@ni/nimble-angular/list-option";
+import { NimbleSelectModule, NimbleListOptionModule } from "@ni/nimble-angular";
 ```
 
 ```html
-<nimble-select [(ngModel)]="selectedType" (change)="onTypeChange()">
+<!-- Basic -->
+<nimble-select [(ngModel)]="selectedType" (ngModelChange)="onTypeChange()">
   <nimble-list-option value="">All types</nimble-list-option>
   <nimble-list-option value="DOUBLE">Double</nimble-list-option>
   <nimble-list-option value="STRING">String</nimble-list-option>
   <nimble-list-option value="BOOLEAN">Boolean</nimble-list-option>
 </nimble-select>
+
+<!-- With built-in filter (useful for long lists) -->
+<nimble-select filter-mode="standard" [(ngModel)]="selectedWorkspace">
+  <nimble-list-option *ngFor="let ws of workspaces" [value]="ws.id">{{ ws.name }}</nimble-list-option>
+</nimble-select>
 ```
+
+> Use `filter-mode="standard"` to add a built-in text filter to the dropdown — no custom search logic needed for long option lists.
 
 ---
 
@@ -160,7 +203,7 @@ import { NimbleListOptionModule } from "@ni/nimble-angular/list-option";
 Side panel for details or config. Control with `#drawerRef` template variable.
 
 ```typescript
-import { NimbleDrawerModule } from "@ni/nimble-angular/drawer";
+import { NimbleDrawerModule } from "@ni/nimble-angular";
 ```
 
 ```html
@@ -180,7 +223,7 @@ import { NimbleDrawerModule } from "@ni/nimble-angular/drawer";
 ## nimble-spinner
 
 ```typescript
-import { NimbleSpinnerModule } from "@ni/nimble-angular/spinner";
+import { NimbleSpinnerModule } from "@ni/nimble-angular";
 ```
 
 ```html
@@ -194,7 +237,7 @@ import { NimbleSpinnerModule } from "@ni/nimble-angular/spinner";
 For in-page error/warning/info messages.
 
 ```typescript
-import { NimbleBannerModule } from "@ni/nimble-angular/banner";
+import { NimbleBannerModule } from "@ni/nimble-angular";
 ```
 
 ```html
@@ -202,6 +245,41 @@ import { NimbleBannerModule } from "@ni/nimble-angular/banner";
   {{ error }}
 </nimble-banner>
 ```
+
+---
+
+## nimble-dialog
+
+**Critical:** never put `*ngIf` on a `nimble-dialog`. The `*ngIf="false"` removes the element from the DOM, making `@ViewChild` return `undefined` and `.show()` impossible to invoke.
+
+```typescript
+import { NimbleDialogModule } from "@ni/nimble-angular";
+```
+
+```html
+<!-- Keep the dialog always in the DOM -->
+<nimble-dialog #confirmDialog>
+  <span slot="title">Confirm Action</span>
+  <span slot="subtitle">This cannot be undone.</span>
+
+  <p>Are you sure you want to proceed?</p>
+
+  <!-- Multiple slot="footer" elements are displayed side by side -->
+  <nimble-button slot="footer" (click)="closeDialog()">Cancel</nimble-button>
+  <nimble-button slot="footer" appearance="block" appearance-variant="accent" (click)="confirm()">Confirm</nimble-button>
+</nimble-dialog>
+```
+
+```typescript
+import { ElementRef, ViewChild } from '@angular/core';
+
+@ViewChild('confirmDialog') private dialogEl?: ElementRef;
+
+openDialog(): void  { this.dialogEl?.nativeElement.show(); }
+closeDialog(): void { this.dialogEl?.nativeElement.close(); }
+```
+
+**Available slots:** `title` (required text), `subtitle` (optional descriptive text), `footer` (action buttons — multiple allowed).
 
 ---
 
@@ -234,5 +312,44 @@ Nimble doesn't ship a grid/layout component. Use flexbox in SCSS:
 
 nimble-table {
   height: 100%;
+}
+```
+
+### Clickable card / list-row pattern
+
+For any clickable tile or row, use Nimble tokens directly (not the `--sl-app-color-border` alias which is for dividers):
+
+```scss
+.card {
+  border: 1px solid var(--ni-nimble-card-border-color);
+  background: var(--ni-nimble-section-background-color);
+  border-radius: var(--ni-nimble-small-padding, 4px);
+  cursor: pointer;
+  // Transition both shadow and border for a polished hover
+  transition: box-shadow var(--ni-nimble-medium-delay, 0.15s) ease,
+              border-color var(--ni-nimble-medium-delay, 0.15s) ease;
+
+  &:hover {
+    box-shadow: var(--ni-nimble-elevation-2-box-shadow, 0 2px 8px rgba(0, 0, 0, 0.12));
+    border-color: var(--ni-nimble-border-hover-color);
+  }
+}
+
+// For equal-height cards in a CSS grid, the host element must fill the cell:
+:host {
+  display: flex;
+  height: 100%;
+}
+
+.card {
+  flex: 1; // fills the :host flex container
+}
+
+.card-body {
+  flex: 1; // pushes footer to the bottom
+}
+
+.card-description {
+  flex: 1; // equalises description height across cards
 }
 ```

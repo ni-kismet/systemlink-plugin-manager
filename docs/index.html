@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="A curated marketplace for SystemLink custom web apps, notebooks, and extensibility packages. Browse, install, and update apps directly from your SystemLink instance." />
+  <title>SystemLink App Store</title>
+  <style>
+    /* ── Design tokens ────────────────────────────────────────────── */
+    :root {
+      --bg:           #1c1c1c;
+      --bg-2:         #252526;
+      --bg-3:         #2e2e2e;
+      --border:       #3a3a3a;
+      --border-light: #4a4a4a;
+      --accent:       #00b050;
+      --accent-hover: #00cc5e;
+      --accent-glow:  rgba(0,176,80,.2);
+      --green:        #00b050;
+      --text:         #e8e8e8;
+      --text-muted:   #a8a8a8;
+      --text-faint:   #6a6a6a;
+      --radius:       12px;
+      --radius-sm:    8px;
+      --font:         -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      --font-mono:    ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+    }
+
+    /* ── Reset ────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    img { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Layout helpers ───────────────────────────────────────────── */
+    .container {
+      max-width: 1120px;
+      margin-inline: auto;
+      padding-inline: clamp(1.25rem, 5vw, 2.5rem);
+    }
+    .section { padding-block: clamp(4rem, 8vw, 7rem); }
+    .section + .section { border-top: 1px solid var(--border); }
+    .label {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      font-size: .75rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+    .label svg { width: 14px; height: 14px; }
+    h2.section-title {
+      font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -.02em;
+      margin-bottom: .75rem;
+    }
+    p.section-sub {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      max-width: 52ch;
+      margin-bottom: 3rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: .2em .65em;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 600;
+      background: var(--accent-glow);
+      color: var(--accent-hover);
+      border: 1px solid rgba(59,130,246,.3);
+    }
+
+    /* ── Navigation ───────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(20,20,20,.9);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: .65rem;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .nav-logo svg { flex-shrink: 0; }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.75rem;
+      font-size: .875rem;
+      color: var(--text-muted);
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .45rem 1rem;
+      background: var(--accent);
+      border-radius: var(--radius-sm);
+      font-size: .875rem;
+      font-weight: 600;
+      color: #fff;
+      transition: background .15s;
+    }
+    .nav-cta:hover { background: var(--accent-hover); }
+    @media (max-width: 640px) { .nav-links { display: none; } }
+
+    /* ── Hero ─────────────────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      padding-block: clamp(5rem, 12vw, 9rem);
+      overflow: hidden;
+    }
+    /* subtle grid */
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 60px 60px;
+      background-position: center center;
+      opacity: .35;
+      pointer-events: none;
+    }
+    /* radial fade */
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 40%, transparent 0%, var(--bg) 75%);
+      pointer-events: none;
+    }
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      max-width: 720px;
+      margin-inline: auto;
+    }
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .35rem .85rem;
+      border: 1px solid var(--border-light);
+      border-radius: 999px;
+      background: var(--bg-2);
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 1.75rem;
+    }
+    .hero-eyebrow .dot {
+      width: 6px;
+      height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .4; }
+    }
+    .hero h1 {
+      font-size: clamp(2.5rem, 7vw, 4.25rem);
+      font-weight: 800;
+      letter-spacing: -.035em;
+      line-height: 1.1;
+      margin-bottom: 1.25rem;
+    }
+    .hero h1 .accent-word {
+      background: linear-gradient(135deg, #00e676 0%, #00b050 60%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: var(--text-muted);
+      max-width: 52ch;
+      margin-inline: auto;
+      margin-bottom: 2.5rem;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: .85rem;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .75rem 1.75rem;
+      background: var(--accent);
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 1rem;
+      color: #fff;
+      transition: background .15s, box-shadow .15s;
+      box-shadow: 0 0 0 0 var(--accent-glow);
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      box-shadow: 0 0 24px var(--accent-glow);
+    }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .75rem 1.5rem;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--text-muted);
+      background: transparent;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-secondary:hover { border-color: var(--text-muted); color: var(--text); }
+    .hero-meta {
+      margin-top: 2.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      font-size: .8rem;
+      color: var(--text-faint);
+    }
+    .hero-meta span { display: flex; align-items: center; gap: .35rem; }
+    .hero-meta svg { width: 14px; height: 14px; opacity: .6; }
+
+    /* ── App screenshot mockup ────────────────────────────────────── */
+    .hero-mockup {
+      position: relative;
+      z-index: 1;
+      margin-top: 4rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-light);
+      background: var(--bg-2);
+      overflow: hidden;
+      box-shadow: 0 40px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.03);
+      max-width: 900px;
+      margin-inline: auto;
+    }
+    .mockup-bar {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .65rem 1rem;
+      background: var(--bg-3);
+      border-bottom: 1px solid var(--border);
+    }
+    .mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .mockup-dot.red   { background: #ff5f57; }
+    .mockup-dot.amber { background: #febc2e; }
+    .mockup-dot.green { background: #28c840; }
+    .mockup-url-bar {
+      flex: 1;
+      margin-inline: 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: .25rem .75rem;
+      font-size: .7rem;
+      color: var(--text-faint);
+      font-family: var(--font-mono);
+      max-width: 400px;
+    }
+    .mockup-body { padding: 1.5rem; display: grid; gap: 1rem; }
+    .mockup-search {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: .6rem 1rem;
+      color: var(--text-faint);
+      font-size: .85rem;
+    }
+    .mockup-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: .75rem;
+    }
+    .mockup-card {
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: .85rem;
+    }
+    .mockup-card-header {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      margin-bottom: .5rem;
+    }
+    .mockup-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      flex-shrink: 0;
+    }
+    .mockup-card-name {
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .mockup-card-author {
+      font-size: .7rem;
+      color: var(--text-faint);
+    }
+    .mockup-card-desc {
+      font-size: .72rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: .6rem;
+    }
+    .mockup-install-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .28rem .65rem;
+      background: var(--accent);
+      border-radius: 5px;
+      font-size: .72rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .mockup-installed-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .28rem .65rem;
+      background: rgba(34,197,94,.1);
+      border: 1px solid rgba(34,197,94,.3);
+      border-radius: 5px;
+      font-size: .72rem;
+      font-weight: 600;
+      color: var(--green);
+    }
+
+    /* ── Features grid ────────────────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .feature-card {
+      background: var(--bg-2);
+      padding: 1.75rem;
+    }
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-glow);
+      border: 1px solid rgba(59,130,246,.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+      color: var(--accent-hover);
+    }
+    .feature-icon svg { width: 20px; height: 20px; }
+    .feature-card h3 {
+      font-size: .95rem;
+      font-weight: 700;
+      margin-bottom: .4rem;
+    }
+    .feature-card p {
+      font-size: .85rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    /* ── Get started / Steps ──────────────────────────────────────── */
+    .steps { display: grid; gap: 0; }
+    .step {
+      display: grid;
+      grid-template-columns: 64px 1fr;
+      gap: 0 2rem;
+      align-items: start;
+      position: relative;
+    }
+    .step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 31px;
+      top: 64px;
+      bottom: 0;
+      width: 2px;
+      background: var(--border-light);
+    }
+    .step-number-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: .15rem;
+    }
+    .step-num {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--bg-3);
+      border: 2px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--accent);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+      transition: border-color .2s, background .2s;
+    }
+    .step:hover .step-num {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+    .step-content { padding-block: 0 3rem; }
+    .step-content:last-child { padding-bottom: 0; }
+    .step-eyebrow {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: .35rem;
+    }
+    .step-content h3 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: .6rem;
+      letter-spacing: -.01em;
+    }
+    .step-content p {
+      font-size: .92rem;
+      color: var(--text-muted);
+      max-width: 52ch;
+      margin-bottom: 1.25rem;
+      line-height: 1.65;
+    }
+    .step-visual {
+      margin-top: 1.25rem;
+      background: var(--bg-2);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .step-visual-header {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .6rem 1rem;
+      background: var(--bg-3);
+      border-bottom: 1px solid var(--border);
+      font-size: .75rem;
+      color: var(--text-faint);
+    }
+    .step-visual-header svg { width: 13px; height: 13px; }
+    .step-visual-body { padding: 1.25rem; }
+    .release-asset {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .75rem 1rem;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: .6rem;
+    }
+    .release-asset-info {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+    .release-asset-info svg { width: 18px; height: 18px; color: var(--text-muted); flex-shrink: 0; }
+    .release-asset-name { font-size: .85rem; font-weight: 600; font-family: var(--font-mono); }
+    .release-asset-size { font-size: .75rem; color: var(--text-faint); margin-top: .1rem; }
+    .download-link {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .4rem .9rem;
+      background: var(--accent);
+      border-radius: 6px;
+      font-size: .8rem;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+      transition: background .15s;
+    }
+    .download-link:hover { background: var(--accent-hover); }
+    .upload-zone {
+      border: 2px dashed var(--border-light);
+      border-radius: var(--radius);
+      padding: 2rem;
+      text-align: center;
+      background: rgba(37,99,235,.03);
+    }
+    .upload-zone svg { width: 40px; height: 40px; color: var(--text-faint); margin-inline: auto; margin-bottom: .75rem; }
+    .upload-zone p { font-size: .85rem; color: var(--text-muted); margin-bottom: .6rem; }
+    .upload-zone .file-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .3rem .75rem;
+      background: var(--bg-3);
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      font-size: .78rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .onboarding-wizard {
+      border-radius: var(--radius-sm);
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .wizard-header {
+      padding: .75rem 1rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-size: .8rem;
+      font-weight: 700;
+    }
+    .wizard-steps-bar {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    .wizard-step-tab {
+      flex: 1;
+      padding: .55rem .5rem;
+      font-size: .7rem;
+      font-weight: 600;
+      text-align: center;
+      color: var(--text-faint);
+      border-bottom: 2px solid transparent;
+    }
+    .wizard-step-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .wizard-step-tab.done { color: var(--green); }
+    .wizard-body { padding: 1.1rem; }
+    .wizard-body p { font-size: .8rem; color: var(--text-muted); margin-bottom: .85rem; }
+    .input-row {
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      margin-bottom: .75rem;
+    }
+    .fake-input {
+      flex: 1;
+      background: var(--bg-2);
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      padding: .45rem .75rem;
+      font-size: .75rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .wizard-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .4rem .9rem;
+      background: var(--accent);
+      border-radius: 6px;
+      font-size: .75rem;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+    }
+    .wizard-workspace {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .5rem .75rem;
+      background: var(--bg-2);
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      font-size: .78rem;
+    }
+    .workspace-name { font-weight: 600; }
+    .workspace-badge {
+      font-size: .65rem;
+      padding: .2em .55em;
+      background: var(--accent-glow);
+      color: var(--accent-hover);
+      border-radius: 4px;
+    }
+
+    /* ── Code / CLI block ─────────────────────────────────────────── */
+    .code-block {
+      background: var(--bg-2);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .code-block-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .55rem 1rem;
+      background: var(--bg-3);
+      border-bottom: 1px solid var(--border);
+      font-size: .72rem;
+      color: var(--text-muted);
+    }
+    .code-block pre {
+      padding: 1rem 1.25rem;
+      font-size: .82rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+    .code-block pre .cmd  { color: #60a5fa; }
+    .code-block pre .flag { color: #a5b4fc; }
+    .code-block pre .arg  { color: #86efac; }
+    .code-block pre .str  { color: #fca5a5; }
+    .code-block pre .cmt  { color: var(--text-faint); }
+
+    /* ── Requirements / Checklist ─────────────────────────────────── */
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: .65rem;
+      margin-top: 2rem;
+    }
+    .check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+      padding: .85rem;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .check-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      color: var(--green);
+      margin-top: .1rem;
+    }
+    .check-item p { font-size: .82rem; color: var(--text-muted); line-height: 1.5; }
+    .check-item strong { display: block; font-size: .85rem; color: var(--text); margin-bottom: .2rem; }
+
+    /* ── CTA banner ───────────────────────────────────────────────── */
+    .cta-banner {
+      background: linear-gradient(135deg, var(--bg-2) 0%, rgba(37,99,235,.08) 100%);
+      border: 1px solid rgba(59,130,246,.2);
+      border-radius: var(--radius);
+      padding: clamp(2rem, 4vw, 3.5rem);
+      text-align: center;
+    }
+    .cta-banner h2 {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 800;
+      letter-spacing: -.02em;
+      margin-bottom: .75rem;
+    }
+    .cta-banner p {
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      max-width: 50ch;
+      margin-inline: auto;
+    }
+    .cta-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .85rem;
+      justify-content: center;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding-block: 2.5rem;
+    }
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-size: .875rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+      font-size: .82rem;
+      color: var(--text-faint);
+    }
+    .footer-links a:hover { color: var(--text-muted); }
+    .footer-copy { font-size: .78rem; color: var(--text-faint); }
+  </style>
+</head>
+<body>
+
+<!-- ─────────────────── Navigation ─────────────────── -->
+<nav>
+  <div class="container">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <!-- App Store icon inline SVG -->
+        <svg width="28" height="28" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="128" height="128" rx="20" fill="#0f172a"/>
+          <rect x="18" y="24" width="92" height="80" rx="12" fill="#f8fafc"/>
+          <path d="M38 50h52" stroke="#0f172a" stroke-width="8" stroke-linecap="round"/>
+          <path d="M38 66h36" stroke="#0f172a" stroke-width="8" stroke-linecap="round"/>
+          <path d="M84 78l10 10 18-18" fill="none" stroke="#2563eb" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="30" y="12" width="68" height="18" rx="9" fill="#2563eb"/>
+        </svg>
+        SystemLink App Store
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#get-started">Get Started</a>
+        <a href="#publish">Publish an App</a>
+        <a href="https://github.com/ni-kismet/systemlink-app-store" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <a href="https://github.com/ni-kismet/systemlink-app-store/releases/latest" class="nav-cta" target="_blank" rel="noopener">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─────────────────── Hero ─────────────────── -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-eyebrow">
+        <span class="dot"></span>
+        Open source · Free · MIT License
+      </div>
+      <h1>The&nbsp;<span class="accent-word">App&nbsp;Store</span><br>for&nbsp;SystemLink</h1>
+      <p>Browse, install, and update custom web applications for NI SystemLink directly from your instance. A curated marketplace powered by a standard NI package feed.</p>
+      <div class="hero-actions">
+        <a href="#get-started" class="btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Get Started
+        </a>
+        <a href="https://github.com/ni-kismet/systemlink-app-store" class="btn-secondary" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      <div class="hero-meta">
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Requires SystemLink 2024 Q4+
+        </span>
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          No API key needed
+        </span>
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+          Windows-all packages
+        </span>
+      </div>
+    </div>
+
+    <!-- App screenshot -->
+    <div class="hero-mockup" style="padding:0">
+      <img src="screenshots/catalog.png" alt="SystemLink App Store catalog — browse and install web applications" style="width:100%;display:block">
+    </div>
+
+    <!-- App mockup (hidden, kept for reference) -->
+    <div class="hero-mockup" style="display:none">
+      <div class="mockup-bar">
+        <span class="mockup-dot red"></span>
+        <span class="mockup-dot amber"></span>
+        <span class="mockup-dot green"></span>
+        <span class="mockup-url-bar">systemlink.example.com/NISystemLinkWebApps/app-store/#/catalog</span>
+      </div>
+      <div class="mockup-body">
+        <div class="mockup-search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Search apps by name, category, or tag…
+        </div>
+        <div class="mockup-cards">
+
+          <!-- card 1 -->
+          <div class="mockup-card">
+            <div class="mockup-card-header">
+              <svg class="mockup-icon" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#1e3a5f"/><rect x="4" y="8" width="24" height="16" rx="3" fill="#2563eb"/><rect x="7" y="11" width="10" height="2" rx="1" fill="white" opacity=".8"/><rect x="7" y="15" width="7" height="2" rx="1" fill="white" opacity=".5"/></svg>
+              <div>
+                <div class="mockup-card-name">Asset Dashboard</div>
+                <div class="mockup-card-author">Acme Corp</div>
+              </div>
+            </div>
+            <div class="mockup-card-desc">Real-time asset health monitoring with calibration status and alerts.</div>
+            <span class="mockup-installed-btn">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Installed
+            </span>
+          </div>
+
+          <!-- card 2 -->
+          <div class="mockup-card">
+            <div class="mockup-card-header">
+              <svg class="mockup-icon" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#1a2e1a"/><polyline points="6,22 12,14 17,18 22,10" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <div>
+                <div class="mockup-card-name">Production Metrics</div>
+                <div class="mockup-card-author">NI Examples</div>
+              </div>
+            </div>
+            <div class="mockup-card-desc">Visualise yield, throughput and cycle time across test stations.</div>
+            <span class="mockup-install-btn">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Install
+            </span>
+          </div>
+
+          <!-- card 3 -->
+          <div class="mockup-card">
+            <div class="mockup-card-header">
+              <svg class="mockup-icon" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#2d1a3a"/><circle cx="16" cy="14" r="6" fill="none" stroke="#a855f7" stroke-width="2"/><line x1="16" y1="20" x2="16" y2="26" stroke="#a855f7" stroke-width="2" stroke-linecap="round"/></svg>
+              <div>
+                <div class="mockup-card-name">Calibration Tracker</div>
+                <div class="mockup-card-author">NI Examples</div>
+              </div>
+            </div>
+            <div class="mockup-card-desc">Track calibration due dates and compliance status for all instruments.</div>
+            <span class="mockup-install-btn">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Install
+            </span>
+          </div>
+
+          <!-- card 4 -->
+          <div class="mockup-card">
+            <div class="mockup-card-header">
+              <svg class="mockup-icon" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#1a2535"/><rect x="5" y="10" width="8" height="12" rx="2" fill="#38bdf8"/><rect x="15" y="6" width="12" height="16" rx="2" fill="#0284c7"/></svg>
+              <div>
+                <div class="mockup-card-name">Test Result Viewer</div>
+                <div class="mockup-card-author">NI Examples</div>
+              </div>
+            </div>
+            <div class="mockup-card-desc">Drill into test results, steps, and measurements with interactive charts.</div>
+            <span class="mockup-install-btn">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Install
+            </span>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────── Features ─────────────────── -->
+<section class="section" id="features">
+  <div class="container">
+    <div class="label">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Features
+    </div>
+    <h2 class="section-title">Everything you need to extend SystemLink</h2>
+    <p class="section-sub">The App Store handles the entire app lifecycle — from discovery to installation to updates — without leaving SystemLink.</p>
+    <div class="features-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <h3>Curated Catalog</h3>
+        <p>Browse vetted, security-reviewed apps with rich metadata, icons, and screenshots — all within SystemLink's Content Security Policy.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
+        </div>
+        <h3>One-Click Install</h3>
+        <p>Download the package from the replicated feed and deploy it as a WebApp in any workspace — no manual file handling required.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </div>
+        <h3>Automatic Updates</h3>
+        <p>When publishers release new versions, a "Refresh Feed" in settings syncs the catalog. Upgrade all installed apps in one click.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <h3>CLI Support</h3>
+        <p>All install, upgrade, and publish operations are available as <code style="font-size:.8em;color:var(--accent-hover)">slcli appstore</code> commands for CI/CD pipelines and power users.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </div>
+        <h3>Multi-Workspace</h3>
+        <p>Install apps to one or many workspaces in a single operation. Manage workspace deployments independently or in bulk.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3>Security First</h3>
+        <p>All submissions are reviewed for CSP compliance and security issues. SHA256 checksums and optional OpenPGP feed signing protect against tampering.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────── Get Started ─────────────────── -->
+<section class="section" id="get-started">
+  <div class="container">
+    <div class="label">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Getting Started
+    </div>
+    <h2 class="section-title">Up and running in minutes</h2>
+    <p class="section-sub">The App Store is itself a SystemLink web application. Install it once, and it handles discovery and installation of all other apps from there.</p>
+
+    <div class="steps">
+
+      <!-- ── Step 1 ── -->
+      <div class="step">
+        <div class="step-number-col">
+          <div class="step-num">1</div>
+        </div>
+        <div class="step-content">
+          <div class="step-eyebrow">Step 1 of 3</div>
+          <h3>Download the App Store package</h3>
+          <p>Grab the latest <code style="font-size:.9em;color:var(--accent-hover)">AppStore.nipkg</code> from the GitHub Releases page. This is the bootstrap package — no SystemLink-side setup is needed first.</p>
+          <div class="step-visual">
+            <div class="step-visual-header">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+              github.com / ni-kismet / systemlink-app-store / releases
+            </div>
+            <div class="step-visual-body">
+              <div class="release-asset">
+                <div class="release-asset-info">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                  <div>
+                    <div class="release-asset-name">systemlink-app-store_0.1.0_windows_all.nipkg</div>
+                    <div class="release-asset-size">Latest release · windows_all</div>
+                  </div>
+                </div>
+                <a href="https://github.com/ni-kismet/systemlink-app-store/releases/latest" class="download-link" target="_blank" rel="noopener">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Step 2 ── -->
+      <div class="step">
+        <div class="step-number-col">
+          <div class="step-num">2</div>
+        </div>
+        <div class="step-content">
+          <div class="step-eyebrow">Step 2 of 3</div>
+          <h3>Upload to SystemLink Web Applications</h3>
+          <p>Open your SystemLink instance, navigate to <strong>Web Applications</strong> in the administration section, and upload the downloaded <code style="font-size:.9em;color:var(--accent-hover)">.nipkg</code> file. The Web Application service handles extraction and deployment automatically.</p>
+          <div class="step-visual">
+            <div class="step-visual-header">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              SystemLink → Web Applications → Upload
+            </div>
+            <div class="step-visual-body" style="padding:0;overflow:hidden">
+              <img src="screenshots/upload-dialog.png" alt="SystemLink Web Applications — Upload new web app dialog" style="width:100%;display:block;border-radius:0 0 var(--radius) var(--radius)">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Step 3 ── -->
+      <div class="step">
+        <div class="step-number-col">
+          <div class="step-num">3</div>
+        </div>
+        <div class="step-content">
+          <div class="step-eyebrow">Step 3 of 3</div>
+          <h3>Launch and complete onboarding</h3>
+          <p>The App Store will now appear in your SystemLink navigation. Open it, and the onboarding wizard will guide you through connecting to the public feed and selecting a default workspace. Then you're ready to browse the catalog.</p>
+          <div class="step-visual">
+            <div class="step-visual-header">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              App Store → Onboarding
+            </div>
+            <div class="step-visual-body" style="padding:0;overflow:hidden">
+              <img src="screenshots/onboarding-step1.png" alt="SystemLink App Store onboarding wizard — connect to the package feed" style="width:100%;display:block;border-radius:0 0 var(--radius) var(--radius)">
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /steps -->
+  </div>
+</section>
+
+<!-- ─────────────────── Publish an App ─────────────────── -->
+<section class="section" id="publish">
+  <div class="container">
+    <div class="label">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      Publish an App
+    </div>
+    <h2 class="section-title">Share your app with the community</h2>
+    <p class="section-sub">Submissions go through a PR-based review process. Build your app, package it, and submit a pull request — CI takes care of the rest.</p>
+
+    <div class="code-block" style="max-width:680px;margin-bottom:2rem">
+      <div class="code-block-header">
+        <span>slcli — package and submit in one command</span>
+        <span class="badge">CLI</span>
+      </div>
+      <pre><span class="cmt"># build your Angular webapp first</span>
+<span class="cmd">ng</span> build <span class="flag">--configuration</span> <span class="arg">production</span>
+
+<span class="cmt"># package + generate submission branch</span>
+<span class="cmd">slcli</span> appstore publish dist/browser/ \
+  <span class="flag">--name</span>     <span class="str">"my-awesome-dashboard"</span> \
+  <span class="flag">--version</span>  <span class="str">"1.0.0"</span> \
+  <span class="flag">--category</span> <span class="str">"Dashboard"</span> \
+  <span class="flag">--prepare-pr</span>
+
+<span class="cmt"># push and open the PR</span>
+<span class="cmd">git</span> push origin submit/my-awesome-dashboard-v1.0.0</pre>
+    </div>
+
+    <div class="checklist">
+      <div class="check-item">
+        <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <div><strong>Semantic versioning</strong><p>Version must be <code style="font-size:.9em">MAJOR.MINOR.PATCH</code>. CI rejects non-semver versions automatically.</p></div>
+      </div>
+      <div class="check-item">
+        <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <div><strong>App icon required</strong><p>SVG or PNG, max 128×128 px. Icons are base64-encoded into the feed index for CSP compliance.</p></div>
+      </div>
+      <div class="check-item">
+        <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <div><strong>CSP compliant</strong><p>No external network calls outside SystemLink's own APIs. Reviewed as part of the PR process.</p></div>
+      </div>
+      <div class="check-item">
+        <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <div><strong>Open source license</strong><p>MIT, Apache-2.0, or specify your SPDX license identifier. Commercial / proprietary apps also accepted.</p></div>
+      </div>
+      <div class="check-item">
+        <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <div><strong>Package size ≤ 100 MB</strong><p>CI checks the <code style="font-size:.9em">.nipkg</code> against the size limit and rejects over-sized submissions.</p></div>
+      </div>
+      <div class="check-item">
+        <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <div><strong>Automated cross-repo PRs</strong><p>Build apps in any repository and trigger a submission PR here automatically via <code style="font-size:.9em">repository_dispatch</code>.</p></div>
+      </div>
+    </div>
+
+    <div style="margin-top:2rem">
+      <a href="https://github.com/ni-kismet/systemlink-app-store/blob/main/CONTRIBUTING.md" class="btn-secondary" target="_blank" rel="noopener" style="width:fit-content">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Full Submission Guide
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────── CTA ─────────────────── -->
+<section class="section">
+  <div class="container">
+    <div class="cta-banner">
+      <div class="badge" style="margin-bottom:1rem">Free &amp; Open Source</div>
+      <h2>Ready to extend SystemLink?</h2>
+      <p>Download the App Store package and install it on your SystemLink instance in minutes.</p>
+      <div class="cta-actions">
+        <a href="https://github.com/ni-kismet/systemlink-app-store/releases/latest" class="btn-primary" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download App Store
+        </a>
+        <a href="https://github.com/ni-kismet/systemlink-app-store" class="btn-secondary" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+          Star on GitHub
+        </a>
+        <a href="https://github.com/ni-kismet/systemlink-app-store/blob/main/CONTRIBUTING.md" class="btn-secondary" target="_blank" rel="noopener">
+          Submit an App →
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────── Footer ─────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-logo">
+        <svg width="22" height="22" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" rx="20" fill="#0f172a"/><rect x="18" y="24" width="92" height="80" rx="12" fill="#f8fafc"/><path d="M38 50h52" stroke="#0f172a" stroke-width="8" stroke-linecap="round"/><path d="M38 66h36" stroke="#0f172a" stroke-width="8" stroke-linecap="round"/><path d="M84 78l10 10 18-18" fill="none" stroke="#2563eb" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><rect x="30" y="12" width="68" height="18" rx="9" fill="#2563eb"/></svg>
+        SystemLink App Store
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/ni-kismet/systemlink-app-store" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/ni-kismet/systemlink-app-store/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+        <a href="https://github.com/ni-kismet/systemlink-app-store/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/ni-kismet/systemlink-app-store/releases" target="_blank" rel="noopener">Releases</a>
+      </div>
+      <p class="footer-copy">MIT License · ni-kismet</p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

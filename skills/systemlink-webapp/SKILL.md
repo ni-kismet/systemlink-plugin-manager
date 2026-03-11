@@ -68,17 +68,24 @@ npm install nisystemlink-clients-ts
 
 ### Available services (import paths)
 
-| Service | Import path |
-|---------|-------------|
-| File Ingestion | `nisystemlink-clients-ts/file-ingestion` |
-| Tags | `nisystemlink-clients-ts/tags` |
-| Test Monitor | `nisystemlink-clients-ts/test-monitor` |
-| Asset Management | `nisystemlink-clients-ts/asset-management` |
-| Work Items | `nisystemlink-clients-ts/work-item` |
-| Systems Management | `nisystemlink-clients-ts/systems-management` |
-| Notebooks | `nisystemlink-clients-ts/notebook` |
+| Service | Import path | `baseUrl` (append to `window.location.origin`) |
+|---------|-------------|------------------------------------------------|
+| Feeds | `nisystemlink-clients-ts/feeds` | (none — spec paths already include `/nifeed/v1/`) |
+| Tags | `nisystemlink-clients-ts/tags` | `+ '/nitag'` |
+| User / Workspaces | `nisystemlink-clients-ts/user` | `+ '/niuser/v1'` |
+| Web Application | `nisystemlink-clients-ts/web-application` | `+ '/niapp/v1'` |
+| File Ingestion | `nisystemlink-clients-ts/file-ingestion` | `+ '/nifile'` |
+| Test Monitor | `nisystemlink-clients-ts/test-monitor` | `+ '/nitest'` |
+| Asset Management | `nisystemlink-clients-ts/asset-management` | `+ '/niapm'` |
+| Work Items | `nisystemlink-clients-ts/work-item` | `+ '/niworkorder'` |
+| Systems Management | `nisystemlink-clients-ts/systems-management` | `+ '/nisysmgmt'` |
+| Notebooks | `nisystemlink-clients-ts/notebook` | `+ '/ninotebook'` |
 
 The client factory for each service lives at `nisystemlink-clients-ts/<service>/client`.
+
+> **Base URL gotcha:** Each generated client's path depends on its OpenAPI spec base. For **Feeds**, the spec base is `https://host/` and operation paths already include `/nifeed/v1/...`, so use `baseUrl: window.location.origin` with no suffix. For all other services the spec root matches the service prefix (`https://host/nitag`, `https://host/niuser/v1`, etc.), so set `baseUrl: window.location.origin + '/<prefix>'` as shown above.
+
+> **SDK type mismatch fallback:** If a generated SDK function causes `InputFieldValidationError`, verify the actual request body the server expects with a raw `curl` POST. Sometimes the generated types wrap the body in a `{ request: { ... } }` envelope that the server does not accept (or expect a flat body the type shows as nested). Use direct `fetch` with a manually constructed body as a reliable fallback when the SDK types are wrong.
 
 ### Fallback: generate a custom SDK
 
@@ -114,21 +121,29 @@ import { BrowserModule } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { APP_BASE_HREF } from '@angular/common';
 
-// Nimble modules — import component modules from @ni/nimble-angular
+// Most Nimble component modules are exported from the main `@ni/nimble-angular` barrel.
+// Icon modules (e.g. NimbleIconMagnifyingGlassModule) are ONLY in the main barrel —
+// sub-paths like `@ni/nimble-angular/icons/magnifying-glass` do NOT exist.
 import {
   NimbleThemeProviderModule,
-  NimbleTableModule,
-  NimbleTableColumnTextModule,
   NimbleButtonModule,
+  NimbleAnchorButtonModule,
+  NimbleAnchorTabsModule,
+  NimbleAnchorTabModule,
   NimbleTextFieldModule,
   NimbleSelectModule,
   NimbleListOptionModule,
   NimbleDrawerModule,
+  NimbleDialogModule,
   NimbleSpinnerModule,
   NimbleBannerModule,
+  NimbleTableModule,
+  NimbleTableColumnTextModule,
+  NimbleIconMagnifyingGlassModule,  // icons always from main barrel
 } from '@ni/nimble-angular';
-// Label providers are imported from dedicated subpaths
+// Label providers and Card have dedicated sub-path exports
 import { NimbleLabelProviderCoreModule } from '@ni/nimble-angular/label-provider/core';
+import { NimbleCardModule } from '@ni/nimble-angular/card';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
@@ -152,6 +167,7 @@ import { MyFeatureComponent } from './my-feature/my-feature.component';
     NimbleSpinnerModule,
     NimbleBannerModule,
   ],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],  // required for Nimble web components
   providers: [
     { provide: APP_BASE_HREF, useValue: '/' },   // ← REQUIRED — do not use a <base> tag
   ],
@@ -274,7 +290,7 @@ nimble-theme-provider {
   --sl-app-color-bg: var(--ni-nimble-application-background-color);
   --sl-app-color-surface: var(--ni-nimble-section-background-color);
   --sl-app-color-surface-alt: var(--ni-nimble-header-background-color);
-  --sl-app-color-border: var(--ni-nimble-border-color);
+  --sl-app-color-border: var(--ni-nimble-divider-background-color);  /* use for dividers and section separators */
   --sl-app-color-border-strong: var(--ni-nimble-popup-border-color);
   --sl-app-color-text: var(--ni-nimble-body-font-color);
   --sl-app-color-text-muted: var(--ni-nimble-placeholder-font-color);
@@ -295,15 +311,19 @@ Instead of hard-coded colors/sizes, reference the semantic `--sl-app-*` variable
 ```scss
 // src/app/my-feature/my-feature.component.scss
 
+// Clickable card — use Nimble card-specific tokens directly (more specific than --sl-app-color-border)
 .card {
   padding: var(--sl-app-space-4);
-  border: 1px solid var(--sl-app-color-border);
-  background: var(--sl-app-color-surface);
+  border: 1px solid var(--ni-nimble-card-border-color);
+  background: var(--ni-nimble-section-background-color);
   border-radius: var(--sl-app-space-1);
-  transition: box-shadow var(--ni-nimble-medium-delay, 0.15s) ease;
+  cursor: pointer;
+  transition: box-shadow var(--ni-nimble-medium-delay, 0.15s) ease,
+              border-color var(--ni-nimble-medium-delay, 0.15s) ease;
 
   &:hover {
-    box-shadow: var(--sl-app-shadow-2);
+    box-shadow: var(--ni-nimble-elevation-2-box-shadow, 0 2px 8px rgba(0, 0, 0, 0.12));
+    border-color: var(--ni-nimble-border-hover-color);
   }
 }
 
@@ -480,11 +500,49 @@ export class AppComponent implements OnInit, OnDestroy {
 
 If the app is hosted by SystemLink inside a same-origin iframe, this parent-provider sync keeps the embedded app aligned with the shell when the user switches between light and dark mode.
 
-For breadcrumb navigation in routed Angular apps, use `nimbleRouterLink` on `nimble-breadcrumb-item` (not click handlers):
+### nimble-anchor-tabs navigation
+
+For top-level navigation, use `<nimble-anchor-tabs>` with `[activeid]` and `nimbleRouterLink` on each tab. Track the active tab by subscribing to Angular's `NavigationEnd` events:
 
 ```html
-<nimble-breadcrumb-item nimbleRouterLink="/catalog">Catalog</nimble-breadcrumb-item>
+<nimble-anchor-tabs [activeid]="activeTabId">
+  <nimble-anchor-tab id="catalog" nimbleRouterLink="/catalog">Catalog</nimble-anchor-tab>
+  <nimble-anchor-tab id="installed" nimbleRouterLink="/installed">Installed</nimble-anchor-tab>
+  <nimble-anchor-tab id="settings" nimbleRouterLink="/settings">Settings</nimble-anchor-tab>
+</nimble-anchor-tabs>
 ```
+
+```typescript
+import { Router, NavigationEnd } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
+
+export class AppComponent implements OnInit, OnDestroy {
+  activeTabId = 'catalog';
+  private routerSub?: Subscription;
+
+  constructor(private router: Router) {}
+
+  ngOnInit(): void {
+    this.activeTabId = this.tabIdFromUrl(this.router.url);
+    this.routerSub = this.router.events.pipe(
+      filter(e => e instanceof NavigationEnd)
+    ).subscribe(e => {
+      this.activeTabId = this.tabIdFromUrl((e as NavigationEnd).urlAfterRedirects);
+    });
+  }
+
+  ngOnDestroy(): void { this.routerSub?.unsubscribe(); }
+
+  private tabIdFromUrl(url: string): string {
+    if (url.startsWith('/installed')) return 'installed';
+    if (url.startsWith('/settings')) return 'settings';
+    return 'catalog';
+  }
+}
+```
+
+Required modules: `NimbleAnchorTabsModule`, `NimbleAnchorTabModule` — both from `@ni/nimble-angular`.
 
 ---
 
@@ -535,7 +593,10 @@ Save the returned webapp ID — you'll need it for every subsequent redeploy.
 | App stays light inside dark SystemLink shell | Theme-aware aliases defined on `:root` or embedded app not watching host provider | Define color/shadow aliases on `nimble-theme-provider`; sync `currentTheme` from parent provider |
 | `theme="dark"` is set but colors still look light | Checked the attribute only, not the resolved tokens | Inspect `getComputedStyle(themeProvider).getPropertyValue('--ni-nimble-application-background-color')` in the hosted iframe |
 | CORS / status 0 | `basePath` points to different origin | Set `basePath = window.location.origin + '/service-prefix'` |
-| 404 on API calls | Missing service prefix in base URL | e.g., `/nitag` not just `window.location.origin` |
+| 404 on API calls | Missing service prefix in base URL | e.g., `/nitag` not just `window.location.origin`; Feeds service paths already include `/nifeed/v1/` so use origin alone |
+| `InputFieldValidationError` on API call | SDK-generated request body has wrong shape | Inspect raw API; the generated type may add or omit a `request: {}` wrapper. Use direct `fetch` with manually constructed body |
+| nimble-dialog does not open | `*ngIf` destroys element before `ViewChild` can resolve | Remove `*ngIf` from the dialog element; use `@ViewChild` + `ElementRef` and call `nativeElement.show()` / `nativeElement.close()` |
+| Icon module import fails | Icon sub-path `@ni/nimble-angular/icons/...` does not exist | Import icon modules from the main `@ni/nimble-angular` barrel only |
 | Table rows empty despite correct response | `projection` flattens nested objects | Remove `projection` from query body |
 | `TableRecord` type error | Row type missing index signature | Add `[key: string]: FieldValue \| undefined` |
 | Button appearance invalid | Wrong value for `appearance` attr | Use `appearance="block" appearance-variant="accent"` |
@@ -563,7 +624,7 @@ If the host and iframe are same-origin, Playwright or DevTools can inspect `ifra
 | Asset Management | `/niapm` |
 | Systems Management | `/nisysmgmt` |
 | Work Orders | `/niworkorder` |
-| Feeds (Package Manager) | `/nifeeds` |
+| Feeds (Package Manager) | `/nifeed` |
 | Files | `/nifile` |
 | Notebooks | `/ninotebook` |
 
@@ -571,16 +632,58 @@ See `references/systemlink-services.md` for full API details.
 
 ---
 
+## nimble-dialog — imperative pattern
+
+Do NOT use `*ngIf` on a `nimble-dialog`. When `*ngIf` is false the element is removed from the DOM, so `@ViewChild` cannot resolve it and `.show()` will never be called.
+
+```html
+<!-- Always keep the dialog in the DOM; never *ngIf it -->
+<nimble-dialog #myDialog>
+  <span slot="title">Dialog Title</span>
+  <span slot="subtitle">Optional subtitle or instruction</span>
+
+  <!-- dialog body content -->
+  <nimble-select #mySelect filter-mode="standard" [(ngModel)]="selectedValue">
+    <nimble-list-option *ngFor="let opt of options" [value]="opt.id">{{ opt.name }}</nimble-list-option>
+  </nimble-select>
+
+  <nimble-button slot="footer" (click)="closeDialog()">Cancel</nimble-button>
+  <nimble-button slot="footer" (click)="applyDialog()" [disabled]="applying">Apply</nimble-button>
+</nimble-dialog>
+```
+
+```typescript
+import { ElementRef, ViewChild } from '@angular/core';
+
+@ViewChild('myDialog') private dialogEl?: ElementRef;
+@ViewChild('mySelect') private selectEl?: ElementRef;
+
+openDialog(): void {
+  this.dialogEl?.nativeElement.show();
+}
+
+closeDialog(): void {
+  this.dialogEl?.nativeElement.close();
+}
+```
+
+**Slot summary:** `slot="title"` (required), `slot="subtitle"` (optional), `slot="footer"` (buttons — can have multiple).
+
+Required module: `NimbleDialogModule` from `@ni/nimble-angular`.
+
+---
+
 ## Key imports reference
 
 | Item | Import path |
 |------|-------------|
-| Component modules (theme provider, buttons, inputs, select, list-option, drawer, spinner, banner, table) | `@ni/nimble-angular` |
+| Most component modules (theme provider, buttons, anchor-buttons, anchor-tabs, anchor-tab, tabs, tab, tab-panel, dialog, drawer, inputs, select, list-option, spinner, banner, toolbar, menu, table) | `@ni/nimble-angular` |
+| **Icon modules** (e.g. `NimbleIconMagnifyingGlassModule`) | `@ni/nimble-angular` — **must use main barrel; icon sub-paths do not exist** |
 | Label provider core module | `@ni/nimble-angular/label-provider/core` |
 | Label provider rich text module | `@ni/nimble-angular/label-provider/rich-text` |
 | Label provider table module | `@ni/nimble-angular/label-provider/table` |
+| Card module | `@ni/nimble-angular/card` |
 | Fonts styles entrypoint (`@use`) | `@ni/nimble-angular/styles/fonts` |
 | Tokens styles entrypoint (`@use`) | `@ni/nimble-angular/styles/tokens` |
-| Card module (if used) | `@ni/nimble-angular/card` |
 
 See `references/nimble-angular.md` for template usage of each component.

@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'submissions/**'
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
@@ -62,6 +63,9 @@ jobs:
       - name: Prepare Pages content
         run: |
           mkdir -p _site
+          # Landing page and static assets
+          cp -r docs/. _site/ 2>/dev/null || true
+          # Feed index files served at the same root URL
           cp Packages _site/ 2>/dev/null || true
           cp Packages.gz _site/ 2>/dev/null || true
 

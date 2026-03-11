@@ -62,8 +62,10 @@ def validate_manifest(manifest: dict) -> list[str]:
     try:
         import jsonschema
     except ImportError:
-        print("Warning: jsonschema not installed, skipping schema validation",
-              file=sys.stderr)
+        print(
+            "Warning: jsonschema not installed, skipping schema validation",
+            file=sys.stderr,
+        )
         return []
 
     schema = json.loads(SCHEMA_PATH.read_text())
@@ -173,8 +175,10 @@ def create_submission_branch(
         dest = submission_dir / artifact_name
         download_file(url, dest)
     else:
-        print("Warning: No .nipkg provided — submission will be incomplete",
-              file=sys.stderr)
+        print(
+            "Warning: No .nipkg provided — submission will be incomplete",
+            file=sys.stderr,
+        )
 
     # Download icon if provided as URL
     if icon_url and source_repo and release_tag:
@@ -208,7 +212,11 @@ def create_submission_branch(
         # Push and create PR
         git("push", "--force-with-lease", "origin", branch)
 
-        source_info = f" from [{source_repo}](https://github.com/{source_repo})" if source_repo else ""
+        source_info = (
+            f" from [{source_repo}](https://github.com/{source_repo})"
+            if source_repo
+            else ""
+        )
         body = (
             f"## New submission: {display_name} v{version}\n\n"
             f"**Package:** `{pkg}`\n"
@@ -224,12 +232,19 @@ def create_submission_branch(
 
         pr_result = subprocess.run(
             [
-                "gh", "pr", "create",
-                "--base", "main",
-                "--head", branch,
-                "--title", f"Add {display_name} v{version}",
-                "--body", body,
-                "--label", "submission",
+                "gh",
+                "pr",
+                "create",
+                "--base",
+                "main",
+                "--head",
+                branch,
+                "--title",
+                f"Add {display_name} v{version}",
+                "--body",
+                body,
+                "--label",
+                "submission",
             ],
             cwd=REPO_ROOT,
             capture_output=True,
@@ -313,9 +328,13 @@ def main() -> int:
         return 1
 
     # Ensure we have a .nipkg source
-    if not args.nipkg and not (args.source_repo and args.release_tag and args.artifact_name):
-        print("Error: Provide either --nipkg or all of --source-repo, --release-tag, --artifact-name",
-              file=sys.stderr)
+    if not args.nipkg and not (
+        args.source_repo and args.release_tag and args.artifact_name
+    ):
+        print(
+            "Error: Provide either --nipkg or all of --source-repo, --release-tag, --artifact-name",
+            file=sys.stderr,
+        )
         return 1
 
     create_submission_branch(
