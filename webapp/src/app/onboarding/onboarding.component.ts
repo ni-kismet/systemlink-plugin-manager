@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
-import { DEFAULT_FEED_URL } from '../models/app-store.models';
+import { FeedConfig, DEFAULT_FEED_URL, FEED_NAME } from '../models/app-store.models';
 import { AppStoreService } from '../services/app-store.service';
 
 @Component({
@@ -36,16 +36,23 @@ export class OnboardingComponent {
     }
   }
 
-  async createManifest(): Promise<void> {
+  async saveFeedConfig(): Promise<void> {
     if (this.loading || !this.feedId) return;
     this.loading = true;
     this.error = '';
     try {
-      const manifest = this.appStoreService.createEmptyManifest(this.feedId, this.feedUrl.trim());
-      await this.appStoreService.saveManifest(manifest);
+      const feedConfig: FeedConfig = {
+        name: FEED_NAME,
+        url: this.feedUrl.trim(),
+        feedId: this.feedId,
+      };
+      const existing = await this.appStoreService.loadFeedConfigs();
+      // Replace any existing entry for this feedId, then append the new one.
+      const updated = [...existing.filter(f => f.feedId !== this.feedId), feedConfig];
+      await this.appStoreService.saveFeedConfigs(updated);
       this.step = 3;
     } catch (e: any) {
-      this.error = `Manifest creation failed: ${e.message}`;
+      this.error = `Failed to save feed configuration: ${e.message}`;
     } finally {
       this.loading = false;
     }
@@ -55,3 +62,4 @@ export class OnboardingComponent {
     this.router.navigate(['/catalog']);
   }
 }
+

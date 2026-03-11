@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { InstallManifest } from '../models/app-store.models';
+import { FeedConfig, DEFAULT_FEED_URL, FEED_NAME } from '../models/app-store.models';
 import { AppStoreService } from '../services/app-store.service';
 
 @Component({
@@ -10,12 +10,18 @@ import { AppStoreService } from '../services/app-store.service';
   styleUrl: './settings.component.scss',
 })
 export class SettingsComponent implements OnInit {
-  manifest: InstallManifest | null = null;
+  feeds: FeedConfig[] = [];
+  installedCount = 0;
 
   loading = true;
-  refreshing = false;
+  refreshingFeedId: string | null = null;
   refreshResult = '';
   error = '';
+
+  // Add-feed form
+  addFeedUrl = '';
+  addFeedName = '';
+  addingFeed = false;
 
   constructor(
     private appStoreService: AppStoreService,
@@ -24,10 +30,12 @@ export class SettingsComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
-      const result = await this.appStoreService.findManifest();
-      if (result) {
-        this.manifest = result;
-      }
+      const [feedConfigs, installations] = await Promise.all([
+        this.appStoreService.loadFeedConfigs(),
+        this.appStoreService.listInstalledWebapps().catch(() => [] as any[]),
+      ]);
+      this.feeds = feedConfigs;
+      this.installedCount = installations.length;
     } catch (e: any) {
       this.error = e.message ?? 'Failed to load settings';
     } finally {
@@ -35,37 +43,65 @@ export class SettingsComponent implements OnInit {
     }
   }
 
-  get feedName(): string {
-    return this.manifest?.config.feedName ?? '—';
+  get hasFeedConfig(): boolean {
+    return this.feeds.length > 0;
   }
 
-  get feedUrl(): string {
-    return this.manifest?.config.sourceUrl ?? '—';
-  }
-
-  get feedId(): string {
-    return this.manifest?.config.feedId ?? '—';
-  }
-
-  get installedCount(): number {
-    return this.manifest ? Object.keys(this.manifest.installedApps).length : 0;
-  }
-
-  async refreshFeed(): Promise<void> {
-    if (!this.manifest?.config.feedId || this.refreshing) return;
-    this.refreshing = true;
+  async refreshFeed(feed: FeedConfig): Promise<void> {
+    if (this.refreshingFeedId) return;
+    this.refreshingFeedId = feed.feedId;
     this.refreshResult = '';
     this.error = '';
     try {
-      const resourceIds = await this.appStoreService.checkForUpdates(this.manifest.config.feedId);
-      await this.appStoreService.applyUpdates(this.manifest.config.feedId, resourceIds);
+      const resourceIds = await this.appStoreService.checkForUpdates(feed.feedId);
+      await this.appStoreService.applyUpdates(feed.feedId, resourceIds);
       this.refreshResult = resourceIds.length > 0
-        ? 'Feed refreshed successfully.'
-        : 'Feed is already up to date.';
+        ? `Feed "${feed.name}" refreshed successfully.`
+        : `Feed "${feed.name}" is already up to date.`;
     } catch (e: any) {
       this.error = `Feed refresh failed: ${e.message}`;
     } finally {
-      this.refreshing = false;
+      this.refreshingFeedId = null;
     }
   }
+
+  async addFeed(): Promise<void> {
+    if (this.addingFeed || !this.addFeedUrl.trim()) return;
+    this.addingFeed = true;
+    this.error = '';
+    try {
+      const result = await this.appStoreService.replicateFeed(this.addFeedUrl.trim());
+      const feedId = result.id ?? result.feedId ?? '';
+      const feedConfig: FeedConfig = {
+        name: this.addFeedName.trim() || FEED_NAME,
+        url: this.addFeedUrl.trim(),
+        feedId,
+      };
+      const updated = [...this.feeds.filter(f => f.feedId !== feedId), feedConfig];
+      await this.appStoreService.saveFeedConfigs(updated);
+      this.feeds = updated;
+      this.addFeedUrl = '';
+      this.addFeedName = '';
+    } catch (e: any) {
+      this.error = `Failed to add feed: ${e.message}`;
+    } finally {
+      this.addingFeed = false;
+    }
+  }
+
+  async removeFeed(feed: FeedConfig): Promise<void> {
+    this.error = '';
+    try {
+      const updated = this.feeds.filter(f => f.feedId !== feed.feedId);
+      await this.appStoreService.saveFeedConfigs(updated);
+      this.feeds = updated;
+    } catch (e: any) {
+      this.error = `Failed to remove feed: ${e.message}`;
+    }
+  }
+
+  isRefreshing(feed: FeedConfig): boolean {
+    return this.refreshingFeedId === feed.feedId;
+  }
 }
+

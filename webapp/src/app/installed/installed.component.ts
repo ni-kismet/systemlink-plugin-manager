@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { AppPackage, WorkspaceInstallation, WorkspaceManifest } from '../models/app-store.models';
+import { AppPackage, WorkspaceInstallation } from '../models/app-store.models';
 import { AppStoreService } from '../services/app-store.service';
 import { compareSemver, isNewerVersion } from '../utils/semver';
 
@@ -19,7 +19,6 @@ interface InstalledEntry {
 })
 export class InstalledComponent implements OnInit {
   entries: InstalledEntry[] = [];
-  workspaceManifests: WorkspaceManifest[] = [];
   feedId: string | null = null;
 
   hasPermission = true;
@@ -76,7 +75,6 @@ export class InstalledComponent implements OnInit {
         this.feedId,
         entry.catalogPkg,
         entry.installations,
-        this.workspaceManifests,
       );
       await this.loadInstalledApps(false);
     } catch (e: any) {
@@ -99,7 +97,6 @@ export class InstalledComponent implements OnInit {
           this.feedId,
           entry.catalogPkg!,
           entry.installations,
-          this.workspaceManifests,
         );
       }
 
@@ -116,11 +113,7 @@ export class InstalledComponent implements OnInit {
     this.actionLoading = entry.packageName;
     this.error = '';
     try {
-      await this.appStoreService.uninstallAppAcrossWorkspaces(
-        entry.packageName,
-        entry.installations,
-        this.workspaceManifests,
-      );
+      await this.appStoreService.uninstallAppAcrossWorkspaces(entry.installations);
       await this.loadInstalledApps(false);
     } catch (e: any) {
       this.error = `Uninstall of ${entry.packageName} failed: ${e.message}`;
@@ -142,8 +135,18 @@ export class InstalledComponent implements OnInit {
         this.hasPermission = false;
       }
 
-      this.workspaceManifests = await this.appStoreService.listWorkspaceManifests();
-      this.feedId = this.workspaceManifests[0]?.manifest.config.feedId ?? null;
+      // Load feed configs and installed webapps in parallel
+      const [feedConfigs, installations] = await Promise.all([
+        this.appStoreService.loadFeedConfigs(),
+        this.appStoreService.listInstalledWebapps(),
+      ]);
+
+      this.feedId = feedConfigs[0]?.feedId ?? null;
+
+      // If no feed config, infer from installed webapps
+      if (!this.feedId && installations.length > 0) {
+        this.feedId = installations[0].feedId || null;
+      }
 
       let catalogMap = new Map<string, AppPackage>();
       if (this.feedId) {
@@ -153,28 +156,22 @@ export class InstalledComponent implements OnInit {
         }
       }
 
+      // Group installations by packageName
       const groupedInstallations = new Map<string, WorkspaceInstallation[]>();
-      for (const workspaceManifest of this.workspaceManifests) {
-        for (const [packageName, installed] of Object.entries(workspaceManifest.manifest.installedApps)) {
-          const installations = groupedInstallations.get(packageName) ?? [];
-          installations.push({
-            ...installed,
-            workspaceId: workspaceManifest.workspaceId,
-            workspaceName: workspaceManifest.workspaceName,
-            isCurrentWorkspace: workspaceManifest.isCurrentWorkspace,
-          });
-          groupedInstallations.set(packageName, installations);
-        }
+      for (const installation of installations) {
+        const list = groupedInstallations.get(installation.packageName) ?? [];
+        list.push(installation);
+        groupedInstallations.set(installation.packageName, list);
       }
 
       this.entries = [...groupedInstallations.entries()]
-        .map(([packageName, installations]) => {
+        .map(([packageName, pkgInstallations]) => {
           const catalogPkg = catalogMap.get(packageName) ?? null;
           return {
             packageName,
-            installations: installations.sort((left, right) => left.workspaceName.localeCompare(right.workspaceName)),
+            installations: pkgInstallations.sort((left, right) => left.workspaceName.localeCompare(right.workspaceName)),
             catalogPkg,
-            upgradeAvailable: !!catalogPkg && installations.some(installation => isNewerVersion(catalogPkg.version, installation.version)),
+            upgradeAvailable: !!catalogPkg && pkgInstallations.some(i => isNewerVersion(catalogPkg.version, i.version)),
           };
         })
         .sort((left, right) => {

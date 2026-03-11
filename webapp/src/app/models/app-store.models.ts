@@ -42,7 +42,20 @@ export interface AppPackage {
   feedPackageId?: string;
 }
 
-/** Tracks a single installed app in a workspace manifest. */
+/**
+ * A configured App Store feed source.
+ * Stored as a JSON array in the App Store webapp's own `appstore.feeds` property.
+ */
+export interface FeedConfig {
+  /** Human-readable feed name. */
+  name: string;
+  /** The packageSource URL (e.g., GitHub Pages URL or internal feed server). */
+  url: string;
+  /** SystemLink Feed Service feed ID for this replicated/internal feed. */
+  feedId: string;
+}
+
+/** Tracks a single installed app; derived from the webapp's own properties. */
 export interface InstalledApp {
   /** Semantic version. */
   version: string;
@@ -50,24 +63,14 @@ export interface InstalledApp {
   type: string;
   /** WebApp Service webapp ID. */
   webappId: string;
+  /** Feed Service feed ID this app was installed from. */
+  feedId: string;
+  /** Source URL of the feed this app was installed from. */
+  feedUrl: string;
   /** ISO timestamp when first installed. */
   installedAt: string;
   /** ISO timestamp of last update, or null. */
   updatedAt: string | null;
-}
-
-/** Per-workspace install manifest stored in the Tag Service. */
-export interface InstallManifest {
-  version: number;
-  config: ManifestConfig;
-  installedApps: Record<string, InstalledApp>;
-}
-
-export interface ManifestConfig {
-  feedName: string;
-  feedId: string;
-  /** Remote source URL the feed was replicated from. */
-  sourceUrl?: string;
 }
 
 /** Represents a workspace for multi-workspace support. */
@@ -76,16 +79,10 @@ export interface WorkspaceInfo {
   name: string;
 }
 
-/** A manifest loaded from a specific readable workspace. */
-export interface WorkspaceManifest {
-  workspaceId: string;
-  workspaceName: string;
-  isCurrentWorkspace: boolean;
-  manifest: InstallManifest;
-}
-
-/** An installed app annotated with its owning workspace. */
+/** An installed app annotated with its package name and owning workspace. */
 export interface WorkspaceInstallation extends InstalledApp {
+  /** App Store package name (from appstore.packageName property). */
+  packageName: string;
   workspaceId: string;
   workspaceName: string;
   isCurrentWorkspace: boolean;
@@ -105,5 +102,16 @@ export const DEFAULT_FEED_URL = 'https://ni-kismet.github.io/systemlink-app-stor
 /** Well-known feed name used for discovery. */
 export const FEED_NAME = 'SystemLink App Store';
 
-/** Well-known tag path where the install manifest is stored in the Tag Service. */
-export const MANIFEST_TAG_PATH = 'systemlink-app-store/manifest';
+// ── WebApp property keys ──────────────────────────────────────────────────────
+
+/** Property key on the App Store webapp itself: JSON-serialised FeedConfig[]. */
+export const APPSTORE_PROP_FEEDS = 'appstore.feeds';
+
+/** Property keys set on every webapp installed through the App Store. */
+export const APPSTORE_PROP_PACKAGE = 'appstore.packageName';
+export const APPSTORE_PROP_VERSION = 'appstore.version';
+export const APPSTORE_PROP_TYPE = 'appstore.type';
+export const APPSTORE_PROP_FEED_ID = 'appstore.feedId';
+export const APPSTORE_PROP_FEED_URL = 'appstore.feedUrl';
+export const APPSTORE_PROP_INSTALLED_AT = 'appstore.installedAt';
+export const APPSTORE_PROP_UPDATED_AT = 'appstore.updatedAt';

@@ -1,7 +1,6 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { AppPackage, InstalledApp, InstallManifest, DEFAULT_FEED_URL, WorkspaceInfo, WorkspaceInstallation, WorkspaceManifest } from '../models/app-store.models';
-// DEFAULT_FEED_URL is used only for createEmptyManifest (the source URL on first onboarding)
+import { AppPackage, FeedConfig, InstalledApp, WorkspaceInfo, WorkspaceInstallation } from '../models/app-store.models';
 import { AppStoreService } from '../services/app-store.service';
 import { formatBytes } from '../utils/semver';
 import { isNewerVersion } from '../utils/semver';
@@ -21,16 +20,18 @@ interface WorkspaceInstallOption {
 })
 export class AppDetailComponent implements OnInit {
   pkg: AppPackage | null = null;
+  /** Installation record for the current workspace (null if not installed here). */
   installed: InstalledApp | null = null;
-  manifest: InstallManifest | null = null;
   feedId: string | null = null;
+  feedConfig: FeedConfig | null = null;
   currentWorkspace = '';
-  workspaceManifests: WorkspaceManifest[] = [];
+  /** All installations of this package across all visible workspaces. */
   workspaceInstallations: WorkspaceInstallation[] = [];
   installOptions: WorkspaceInstallOption[] = [];
   pendingWorkspaceIds: string[] = [];
   isEditMode = false;
   private originalInstalledIds = new Set<string>();
+  private allInstallations: WorkspaceInstallation[] = [];
 
   @ViewChild('installDialog') private installDialogEl?: ElementRef;
   @ViewChild('confirmDialog') private confirmDialogEl?: ElementRef;
@@ -65,17 +66,18 @@ export class AppDetailComponent implements OnInit {
         readableWorkspaces = [];
       }
 
-      this.workspaceManifests = await this.appStoreService.listWorkspaceManifests();
+      // Load feed configs, installed webapps, and workspaces in parallel
+      const [feedConfigs, allInstallations] = await Promise.all([
+        this.appStoreService.loadFeedConfigs(),
+        this.appStoreService.listInstalledWebapps(),
+      ]);
+      this.allInstallations = allInstallations;
 
-      // Load manifest
-      const currentWorkspaceManifest = this.workspaceManifests.find(workspaceManifest => workspaceManifest.isCurrentWorkspace)?.manifest ?? null;
-      if (currentWorkspaceManifest) {
-        this.manifest = currentWorkspaceManifest;
-        this.feedId = this.manifest.config.feedId;
-        this.installed = this.manifest.installedApps[packageName] ?? null;
-      }
+      // Derive feed info
+      this.feedId = feedConfigs[0]?.feedId ?? null;
+      this.feedConfig = feedConfigs[0] ?? null;
 
-      // Discover feed
+      // Discover feed if not configured
       if (!this.feedId) {
         const feed = await this.appStoreService.discoverFeed();
         if (feed) this.feedId = feed.id;
@@ -217,16 +219,11 @@ export class AppDetailComponent implements OnInit {
           this.feedId,
           this.pkg,
           toInstallIds,
-          this.workspaceManifests,
-          this.manifest?.config.sourceUrl ?? DEFAULT_FEED_URL,
+          this.feedConfig,
         );
       }
       if (toUninstall.length > 0) {
-        await this.appStoreService.uninstallAppAcrossWorkspaces(
-          this.pkg.packageName,
-          toUninstall,
-          this.workspaceManifests,
-        );
+        await this.appStoreService.uninstallAppAcrossWorkspaces(toUninstall);
       }
       await this.reloadWorkspaceState();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -239,17 +236,12 @@ export class AppDetailComponent implements OnInit {
   }
 
   async upgrade(): Promise<void> {
-    if (!this.feedId || !this.pkg || !this.installed || !this.manifest || this.actionLoading) return;
+    if (!this.feedId || !this.pkg || !this.installed || this.actionLoading) return;
     this.actionLoading = true;
     this.error = '';
     try {
-      this.manifest = await this.appStoreService.upgradeApp(
-        this.feedId,
-        this.pkg,
-        this.installed,
-        this.manifest,
-      );
-      this.installed = this.manifest.installedApps[this.pkg.packageName] ?? null;
+      await this.appStoreService.upgradeApp(this.feedId, this.pkg, this.installed);
+      await this.reloadWorkspaceState();
     } catch (e: any) {
       this.error = `Upgrade failed: ${e.message}`;
     } finally {
@@ -273,11 +265,7 @@ export class AppDetailComponent implements OnInit {
     this.error = '';
     this.closeUninstallDialog();
     try {
-      await this.appStoreService.uninstallAppAcrossWorkspaces(
-        this.pkg.packageName,
-        this.workspaceInstallations,
-        this.workspaceManifests,
-      );
+      await this.appStoreService.uninstallAppAcrossWorkspaces(this.workspaceInstallations);
       await this.reloadWorkspaceState();
     } catch (e: any) {
       this.error = `Uninstall failed: ${e.message}`;
@@ -291,9 +279,7 @@ export class AppDetailComponent implements OnInit {
   }
 
   private async reloadWorkspaceState(): Promise<void> {
-    if (!this.pkg) {
-      return;
-    }
+    if (!this.pkg) return;
 
     let readableWorkspaces: WorkspaceInfo[] = [];
     try {
@@ -302,32 +288,24 @@ export class AppDetailComponent implements OnInit {
       readableWorkspaces = [];
     }
 
-    this.workspaceManifests = await this.appStoreService.listWorkspaceManifests();
-    this.manifest = this.workspaceManifests.find(workspaceManifest => workspaceManifest.isCurrentWorkspace)?.manifest ?? null;
-    this.installed = this.manifest?.installedApps[this.pkg.packageName] ?? null;
+    this.allInstallations = await this.appStoreService.listInstalledWebapps();
     this.refreshWorkspaceState(this.pkg.packageName, readableWorkspaces);
   }
 
   private refreshWorkspaceState(packageName: string, readableWorkspaces: WorkspaceInfo[]): void {
-    const installations = this.workspaceManifests
-      .filter(workspaceManifest => !!workspaceManifest.manifest.installedApps[packageName])
-      .map(workspaceManifest => ({
-        ...workspaceManifest.manifest.installedApps[packageName],
-        workspaceId: workspaceManifest.workspaceId,
-        workspaceName: workspaceManifest.workspaceName,
-        isCurrentWorkspace: workspaceManifest.isCurrentWorkspace,
-      }));
+    const installations = this.allInstallations
+      .filter(inst => inst.packageName === packageName)
+      .sort((left, right) => {
+        if (left.isCurrentWorkspace !== right.isCurrentWorkspace) {
+          return left.isCurrentWorkspace ? -1 : 1;
+        }
+        return left.workspaceName.localeCompare(right.workspaceName);
+      });
 
-    this.workspaceInstallations = installations.sort((left, right) => {
-      if (left.isCurrentWorkspace !== right.isCurrentWorkspace) {
-        return left.isCurrentWorkspace ? -1 : 1;
-      }
+    this.workspaceInstallations = installations;
+    this.installed = installations.find(i => i.isCurrentWorkspace) ?? null;
 
-      return left.workspaceName.localeCompare(right.workspaceName);
-    });
-
-    const installedWorkspaceIds = new Set(this.workspaceInstallations.map(installation => installation.workspaceId));
-    const workspaceNameMap = new Map(readableWorkspaces.map(workspace => [workspace.id, workspace.name]));
+    const installedWorkspaceIds = new Set(installations.map(i => i.workspaceId));
 
     this.installOptions = readableWorkspaces.map(workspace => ({
       workspaceId: workspace.id,
@@ -338,14 +316,13 @@ export class AppDetailComponent implements OnInit {
       if (left.isCurrentWorkspace !== right.isCurrentWorkspace) {
         return left.isCurrentWorkspace ? -1 : 1;
       }
-
       return left.workspaceName.localeCompare(right.workspaceName) || left.workspaceId.localeCompare(right.workspaceId);
     });
 
     if (!this.installOptions.length && this.currentWorkspace) {
       this.installOptions = [{
         workspaceId: this.currentWorkspace,
-        workspaceName: workspaceNameMap.get(this.currentWorkspace) ?? this.currentWorkspace,
+        workspaceName: this.currentWorkspace,
         isCurrentWorkspace: true,
         alreadyInstalled: installedWorkspaceIds.has(this.currentWorkspace),
       }];

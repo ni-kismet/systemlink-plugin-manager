@@ -28,19 +28,19 @@
       </div>
     </section>
 
-    <!-- Step 2: Create Manifest -->
+    <!-- Step 2: Save Feed Config -->
     <section class="step" [class.active]="step === 2" [class.done]="step > 2">
       <div class="step-header">
         <span class="step-number" [class.completed]="step > 2">2</span>
-        <span class="step-title">Initialize workspace configuration</span>
+        <span class="step-title">Save feed configuration</span>
       </div>
       <div *ngIf="step === 2" class="step-body">
         <p>
-          Create the install manifest that tracks which apps are installed
-          in your workspace.
+          Register the replicated feed so the App Store can discover and
+          install packages from it.
         </p>
-        <nimble-button appearance="outline" (click)="createManifest()" [disabled]="loading">
-          {{ loading ? 'Creating…' : 'Create Manifest' }}
+        <nimble-button appearance="outline" (click)="saveFeedConfig()" [disabled]="loading">
+          {{ loading ? 'Saving…' : 'Save Configuration' }}
         </nimble-button>
       </div>
     </section>

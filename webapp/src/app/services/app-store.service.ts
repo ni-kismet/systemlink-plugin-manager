@@ -1,13 +1,19 @@
 import { Injectable } from '@angular/core';
 import {
   AppPackage,
-  InstallManifest,
+  FeedConfig,
   InstalledApp,
-  FEED_NAME,
-  MANIFEST_TAG_PATH,
   WorkspaceInfo,
   WorkspaceInstallation,
-  WorkspaceManifest,
+  FEED_NAME,
+  APPSTORE_PROP_FEEDS,
+  APPSTORE_PROP_PACKAGE,
+  APPSTORE_PROP_VERSION,
+  APPSTORE_PROP_TYPE,
+  APPSTORE_PROP_FEED_ID,
+  APPSTORE_PROP_FEED_URL,
+  APPSTORE_PROP_INSTALLED_AT,
+  APPSTORE_PROP_UPDATED_AT,
 } from '../models/app-store.models';
 
 // ── SDK imports ───────────────────────────────────────────────
@@ -20,12 +26,16 @@ import {
   postNifeedV1FeedsByFeedIdApplyUpdates,
 } from 'nisystemlink-clients-ts/feeds';
 import type { Package } from 'nisystemlink-clients-ts/feeds';
-import { createClient as createTagClient, createConfig as createTagConfig } from 'nisystemlink-clients-ts/tags/client';
-import { createOrReplaceTagInWorkspace, updateTagCurrentValuesInWorkspace, getTagWithValueInWorkspace, queryTagsWithValues } from 'nisystemlink-clients-ts/tags';
 import { createClient as createUserClient, createConfig as createUserConfig } from 'nisystemlink-clients-ts/user/client';
 import { getWorkspaces } from 'nisystemlink-clients-ts/user';
 import { createClient as createWebAppClient, createConfig as createWebAppConfig } from 'nisystemlink-clients-ts/web-application/client';
-import { listWebapps as sdkListWebapps, createWebapp as sdkCreateWebapp, deleteWebapp as sdkDeleteWebapp } from 'nisystemlink-clients-ts/web-application';
+import {
+  listWebapps as sdkListWebapps,
+  createWebapp as sdkCreateWebapp,
+  deleteWebapp as sdkDeleteWebapp,
+  getWebapp as sdkGetWebapp,
+  updateWebapp as sdkUpdateWebapp,
+} from 'nisystemlink-clients-ts/web-application';
 import { compareSemver } from '../utils/semver';
 
 @Injectable({ providedIn: 'root' })
@@ -36,13 +46,9 @@ export class AppStoreService {
   // For browser same-origin use we replace the spec's scheme+host with window.location.origin
   // and keep the spec's path prefix so generated operation paths resolve correctly.
   // feeds: spec base = https://dev-api.../  → urls include /nifeed/v1/...
-  // file-ingestion: spec base = https://dev-api.../nifile → urls include /v1/service-groups/...
   // web-application: spec base = https://dev-api.../niapp/v1 → urls include /webapps
   private feedsClient = createFeedsClient(
     createFeedsConfig({ baseUrl: this.origin, credentials: 'include' })
-  );
-  private tagClient = createTagClient(
-    createTagConfig({ baseUrl: `${this.origin}/nitag`, credentials: 'include' })
   );
   private userClient = createUserClient(
     createUserConfig({ baseUrl: `${this.origin}/niuser/v1`, credentials: 'include' })
@@ -172,6 +178,12 @@ export class AppStoreService {
 
   // ── WebApp Service ────────────────────────────────────────────
 
+  /** Extract the App Store webapp's own ID from the current URL (sync, no fetch). */
+  getOwnWebappId(): string | null {
+    const match = window.location.href.match(/\/webapps\/([0-9a-f-]{36})\//);
+    return match ? match[1] : null;
+  }
+
   /** Resolve the workspace of the currently running webapp by reading the URL. */
   async getWorkspace(): Promise<string> {
     if (!this.workspacePromise) {
@@ -192,10 +204,10 @@ export class AppStoreService {
   }
 
   /** Create a new webapp. Returns the created webapp (with id). */
-  async createWebapp(name: string, workspace: string): Promise<any> {
+  async createWebapp(name: string, workspace: string, properties?: Record<string, string>): Promise<any> {
     const { data, error } = await sdkCreateWebapp({
       client: this.webAppClient,
-      body: { name, workspace, policyIds: [] },
+      body: { name, workspace, policyIds: [], ...(properties ? { properties } : {}) },
     });
     if (error) throw new Error(`Failed to create webapp: ${JSON.stringify(error)}`);
     return data;
@@ -231,6 +243,25 @@ export class AppStoreService {
     return data;
   }
 
+  /** List all webapps the user can see, handling pagination. */
+  private async listAllWebapps(): Promise<any[]> {
+    const all: any[] = [];
+    let continuationToken: string | undefined;
+
+    do {
+      const { data, error } = await sdkListWebapps({
+        client: this.webAppClient,
+        query: { take: 200, ...(continuationToken ? { continuationToken } : {}) } as any,
+      });
+      if (error) break;
+      const webapps = (data as any)?.webapps ?? [];
+      all.push(...webapps);
+      continuationToken = (data as any)?.continuationToken ?? undefined;
+    } while (continuationToken);
+
+    return all;
+  }
+
   /** List workspaces the current user can read. */
   async listReadableWorkspaces(): Promise<WorkspaceInfo[]> {
     const { data, error } = await getWorkspaces({ client: this.userClient });
@@ -245,150 +276,120 @@ export class AppStoreService {
       .sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
   }
 
-  // ── Tag Service (manifest) ────────────────────────────────────
+  // ── Feed config (stored in App Store webapp properties) ───────
 
   /**
-   * Find the install manifest stored as a STRING tag in the Tag Service.
-   * Returns null if the tag does not exist or has no value yet.
+   * Load the list of registered App Store feeds from the App Store webapp's
+   * own `appstore.feeds` property. Returns an empty array if none are configured.
    */
-  async findManifest(workspace?: string): Promise<InstallManifest | null> {
-    if (!workspace) {
-      workspace = await this.getWorkspace() || undefined;
-    }
-    if (!workspace) return null;
+  async loadFeedConfigs(): Promise<FeedConfig[]> {
+    const ownId = this.getOwnWebappId();
+    if (!ownId) return [];
 
-    const { data, error } = await getTagWithValueInWorkspace({
-      client: this.tagClient,
-      path: { workspace, path: MANIFEST_TAG_PATH },
+    const { data, error } = await sdkGetWebapp({
+      client: this.webAppClient,
+      path: { id: ownId },
     });
-    if (error || !data?.current?.value?.value) return null;
-    return this.parseManifestValue(data.current.value.value);
+    if (error) return [];
+
+    const feedsJson = ((data as any)?.properties ?? {})[APPSTORE_PROP_FEEDS];
+    if (!feedsJson || typeof feedsJson !== 'string') return [];
+
+    try {
+      return JSON.parse(feedsJson) as FeedConfig[];
+    } catch {
+      return [];
+    }
   }
 
-  /** List all readable workspace manifests for the well-known App Store tag path. */
-  async listWorkspaceManifests(): Promise<WorkspaceManifest[]> {
-    const currentWorkspace = await this.getWorkspace();
-    let workspaces: WorkspaceInfo[] = [];
+  /**
+   * Persist the list of registered feeds to the App Store webapp's properties.
+   * Merges with any existing non-appstore properties so they are preserved.
+   */
+  async saveFeedConfigs(feeds: FeedConfig[]): Promise<void> {
+    const ownId = this.getOwnWebappId();
+    if (!ownId) throw new Error('Cannot save feed config: App Store webapp ID not found');
 
-    try {
-      workspaces = await this.listReadableWorkspaces();
-    } catch {
-      workspaces = [];
-    }
+    // Read current properties so we only change the feeds key.
+    const { data: current } = await sdkGetWebapp({
+      client: this.webAppClient,
+      path: { id: ownId },
+    });
+    const existing = ((current as any)?.properties ?? {}) as Record<string, string>;
 
-    const workspaceNames = new Map(workspaces.map(workspace => [workspace.id, workspace.name]));
-    const manifests = new Map<string, WorkspaceManifest>();
+    const { error } = await sdkUpdateWebapp({
+      client: this.webAppClient,
+      path: { id: ownId },
+      body: {
+        properties: {
+          ...existing,
+          [APPSTORE_PROP_FEEDS]: JSON.stringify(feeds),
+        },
+      },
+    });
+    if (error) throw new Error(`Failed to save feed configs: ${JSON.stringify(error)}`);
+  }
 
-    try {
-      const { data, error } = await queryTagsWithValues({
-        client: this.tagClient,
-        body: {
-          filter: `path = "${MANIFEST_TAG_PATH}"`,
-          take: 1000,
-          orderBy: 'PATH',
-        } as any,
+  // ── Installed webapp discovery ────────────────────────────────
+
+  /**
+   * Return all webapps that were installed through the App Store across all
+   * workspaces visible to the current user.
+   * Identified by the presence of the `appstore.packageName` property.
+   */
+  async listInstalledWebapps(): Promise<WorkspaceInstallation[]> {
+    const [currentWorkspace, workspaces, webapps] = await Promise.all([
+      this.getWorkspace(),
+      this.listReadableWorkspaces().catch(() => [] as WorkspaceInfo[]),
+      this.listAllWebapps(),
+    ]);
+
+    const workspaceNames = new Map(workspaces.map(w => [w.id, w.name]));
+    const installations: WorkspaceInstallation[] = [];
+
+    for (const webapp of webapps) {
+      const props = ((webapp.properties ?? {}) as Record<string, string>);
+      const packageName = props[APPSTORE_PROP_PACKAGE];
+      if (!packageName) continue;
+
+      const workspaceId = webapp.workspace ?? '';
+      installations.push({
+        packageName,
+        version: props[APPSTORE_PROP_VERSION] ?? '',
+        type: props[APPSTORE_PROP_TYPE] ?? 'webapp',
+        webappId: webapp.id ?? '',
+        feedId: props[APPSTORE_PROP_FEED_ID] ?? '',
+        feedUrl: props[APPSTORE_PROP_FEED_URL] ?? '',
+        installedAt: props[APPSTORE_PROP_INSTALLED_AT] ?? '',
+        updatedAt: props[APPSTORE_PROP_UPDATED_AT] || null,
+        workspaceId,
+        workspaceName: workspaceNames.get(workspaceId) ?? workspaceId,
+        isCurrentWorkspace: workspaceId === currentWorkspace,
       });
-      if (error) throw new Error(JSON.stringify(error));
-
-      for (const tagWithValue of data?.tagsWithValues ?? []) {
-        const workspaceId = tagWithValue.tag?.workspace?.trim();
-        const manifest = this.parseManifestValue(tagWithValue.current?.value?.value);
-        if (!workspaceId || !manifest) {
-          continue;
-        }
-
-        manifests.set(workspaceId, {
-          workspaceId,
-          workspaceName: workspaceNames.get(workspaceId) ?? workspaceId,
-          isCurrentWorkspace: workspaceId === currentWorkspace,
-          manifest,
-        });
-      }
-    } catch {
-      // Fall back to the current workspace manifest below.
     }
 
-    if (currentWorkspace && !manifests.has(currentWorkspace)) {
-      const manifest = await this.findManifest(currentWorkspace);
-      if (manifest) {
-        manifests.set(currentWorkspace, {
-          workspaceId: currentWorkspace,
-          workspaceName: workspaceNames.get(currentWorkspace) ?? currentWorkspace,
-          isCurrentWorkspace: true,
-          manifest,
-        });
-      }
-    }
-
-    return [...manifests.values()].sort((left, right) => {
-      if (left.isCurrentWorkspace !== right.isCurrentWorkspace) {
-        return left.isCurrentWorkspace ? -1 : 1;
-      }
-
-      return left.workspaceName.localeCompare(right.workspaceName) || left.workspaceId.localeCompare(right.workspaceId);
-    });
-  }
-
-  /**
-   * Persist the manifest to the Tag Service (create or update).
-   * Uses createOrReplaceTagInWorkspace to upsert the tag metadata,
-   * then writes the JSON-serialised manifest as the current value.
-   */
-  async saveManifest(manifest: InstallManifest, workspace?: string): Promise<void> {
-    workspace = workspace ?? await this.getWorkspace();
-    if (!workspace) throw new Error('Cannot save manifest: workspace unknown');
-
-    // Upsert the tag metadata (idempotent PUT)
-    const { error: tagError } = await createOrReplaceTagInWorkspace({
-      client: this.tagClient,
-      path: { workspace, path: MANIFEST_TAG_PATH },
-      body: { path: MANIFEST_TAG_PATH, type: 'STRING', workspace },
-    });
-    if (tagError) throw new Error(`Failed to create manifest tag: ${JSON.stringify(tagError)}`);
-
-    // Write the JSON-serialised manifest as the current value
-    const { error: valueError } = await updateTagCurrentValuesInWorkspace({
-      client: this.tagClient,
-      path: { workspace, path: MANIFEST_TAG_PATH },
-      body: { value: { value: JSON.stringify(manifest), type: 'STRING' } },
-    });
-    if (valueError) throw new Error(`Failed to write manifest tag value: ${JSON.stringify(valueError)}`);
+    return installations;
   }
 
   // ── Install / Upgrade / Uninstall ─────────────────────────────
 
-  /** Install a package into a workspace. */
+  /** Install a package into a workspace.
+   * Sets App Store metadata properties on the created webapp. */
   async installApp(
     feedId: string,
     pkg: AppPackage,
-    manifest: InstallManifest,
+    feedConfig: FeedConfig | null,
     workspace?: string,
-  ): Promise<InstallManifest> {
-    // 1. Resolve workspace and download .nipkg in parallel
+  ): Promise<void> {
     const [resolvedWorkspace, nipkgBlob] = await Promise.all([
       workspace ? Promise.resolve(workspace) : this.getWorkspace(),
       this.downloadPackageFile(feedId, this.extractFileName(pkg.filename)),
     ]);
     if (!resolvedWorkspace) throw new Error('Cannot install app: workspace unknown');
 
-    // 2. Create webapp
-    const webapp = await this.createWebapp(pkg.displayName, resolvedWorkspace);
-
-    // 3. Upload .nipkg content
+    const properties = this.buildAppStoreProperties(pkg, feedConfig);
+    const webapp = await this.createWebapp(pkg.displayName, resolvedWorkspace, properties);
     await this.uploadContent(webapp.id, nipkgBlob);
-
-    // 4. Update manifest
-    const now = new Date().toISOString();
-    manifest.installedApps[pkg.packageName] = {
-      version: pkg.version,
-      type: pkg.type,
-      webappId: webapp.id,
-      installedAt: now,
-      updatedAt: null,
-    };
-    await this.saveManifest(manifest, resolvedWorkspace);
-
-    return manifest;
   }
 
   /** Install a package into one or more workspaces, downloading the .nipkg once. */
@@ -396,141 +397,98 @@ export class AppStoreService {
     feedId: string,
     pkg: AppPackage,
     workspaces: string[],
-    workspaceManifests: WorkspaceManifest[],
-    sourceUrl?: string,
+    feedConfig: FeedConfig | null,
   ): Promise<void> {
-    if (workspaces.length === 0) {
-      return;
-    }
+    if (workspaces.length === 0) return;
 
     const fileName = this.extractFileName(pkg.filename);
-    const nipkgBlob = await this.downloadPackageFile(feedId, fileName);
+    const [nipkgBlob, properties] = await Promise.all([
+      this.downloadPackageFile(feedId, fileName),
+      Promise.resolve(this.buildAppStoreProperties(pkg, feedConfig)),
+    ]);
 
     for (const workspace of workspaces) {
-      const manifest = this.cloneManifest(
-        workspaceManifests.find(workspaceManifest => workspaceManifest.workspaceId === workspace)?.manifest ?? null
-      ) ?? this.createEmptyManifest(feedId, sourceUrl);
-
-      if (manifest.installedApps[pkg.packageName]) {
-        throw new Error(`Package ${pkg.packageName} is already installed in workspace ${workspace}`);
-      }
-
-      const webapp = await this.createWebapp(pkg.displayName, workspace);
+      const webapp = await this.createWebapp(pkg.displayName, workspace, properties);
       await this.uploadContent(webapp.id, nipkgBlob);
-
-      const now = new Date().toISOString();
-      manifest.installedApps[pkg.packageName] = {
-        version: pkg.version,
-        type: pkg.type,
-        webappId: webapp.id,
-        installedAt: now,
-        updatedAt: null,
-      };
-
-      await this.saveManifest(manifest, workspace);
     }
   }
 
-  /** Upgrade an installed app to a new version. */
+  /** Upgrade an installed app to a new version.
+   * Re-uploads content and updates the version properties on the webapp. */
   async upgradeApp(
     feedId: string,
     pkg: AppPackage,
     installed: InstalledApp,
-    manifest: InstallManifest,
-    workspace?: string,
-  ): Promise<InstallManifest> {
-    // 1. Download new .nipkg
+  ): Promise<void> {
     const fileName = this.extractFileName(pkg.filename);
     const nipkgBlob = await this.downloadPackageFile(feedId, fileName);
-
-    // 2. Upload to existing webapp
     await this.uploadContent(installed.webappId, nipkgBlob);
-
-    // 3. Update manifest
-    manifest.installedApps[pkg.packageName] = {
-      ...installed,
-      version: pkg.version,
-      updatedAt: new Date().toISOString(),
-    };
-    await this.saveManifest(manifest, workspace);
-
-    return manifest;
+    await this.updateInstalledVersion(installed.webappId, pkg.version);
   }
 
-  /** Uninstall an app from a workspace. */
-  async uninstallApp(
-    packageName: string,
-    installed: InstalledApp,
-    manifest: InstallManifest,
-    workspace?: string,
-  ): Promise<InstallManifest> {
-    await this.deleteWebapp(installed.webappId);
-    delete manifest.installedApps[packageName];
-    await this.saveManifest(manifest, workspace);
-    return manifest;
-  }
-
-  /** Upgrade every readable workspace installation of a package to the catalog version. */
+  /** Upgrade every installation of a package to the catalog version.
+   * Downloads the .nipkg once and uploads to each installed webapp. */
   async upgradeAppAcrossWorkspaces(
     feedId: string,
     pkg: AppPackage,
     installations: WorkspaceInstallation[],
-    workspaceManifests: WorkspaceManifest[],
   ): Promise<void> {
     const fileName = this.extractFileName(pkg.filename);
     const nipkgBlob = await this.downloadPackageFile(feedId, fileName);
 
     for (const installation of installations) {
       await this.uploadContent(installation.webappId, nipkgBlob);
-
-      const manifest = this.cloneManifest(
-        workspaceManifests.find(workspaceManifest => workspaceManifest.workspaceId === installation.workspaceId)?.manifest
-          ?? await this.findManifest(installation.workspaceId)
-      );
-
-      if (!manifest || !manifest.installedApps[pkg.packageName]) {
-        throw new Error(`Manifest entry for ${pkg.packageName} not found in workspace ${installation.workspaceName}`);
-      }
-
-      manifest.installedApps[pkg.packageName] = {
-        ...manifest.installedApps[pkg.packageName],
-        version: pkg.version,
-        updatedAt: new Date().toISOString(),
-      };
-
-      await this.saveManifest(manifest, installation.workspaceId);
+      await this.updateInstalledVersion(installation.webappId, pkg.version);
     }
   }
 
-  /** Uninstall a package from every readable workspace where it is currently installed. */
-  async uninstallAppAcrossWorkspaces(
-    packageName: string,
-    installations: WorkspaceInstallation[],
-    workspaceManifests: WorkspaceManifest[],
-  ): Promise<void> {
+  /** Uninstall an app from a single workspace. */
+  async uninstallApp(installed: InstalledApp): Promise<void> {
+    await this.deleteWebapp(installed.webappId);
+  }
+
+  /** Uninstall a package from every workspace where it is currently installed. */
+  async uninstallAppAcrossWorkspaces(installations: WorkspaceInstallation[]): Promise<void> {
     for (const installation of installations) {
       await this.deleteWebapp(installation.webappId);
-
-      const manifest = this.cloneManifest(
-        workspaceManifests.find(workspaceManifest => workspaceManifest.workspaceId === installation.workspaceId)?.manifest
-          ?? await this.findManifest(installation.workspaceId)
-      );
-
-      if (!manifest) {
-        throw new Error(`Manifest for workspace ${installation.workspaceName} not found`);
-      }
-
-      delete manifest.installedApps[packageName];
-      await this.saveManifest(manifest, installation.workspaceId);
     }
   }
 
   // ── Helpers ───────────────────────────────────────────────────
 
-  private async get(path: string): Promise<any> {
-    const res = await fetch(`${this.origin}${path}`, { credentials: 'include' });
-    if (!res.ok) throw new Error(`GET ${path} failed: ${res.status} ${res.statusText}`);
-    return res.json();
+  /** Build the `appstore.*` property map to attach to a newly installed webapp. */
+  private buildAppStoreProperties(pkg: AppPackage, feedConfig: FeedConfig | null): Record<string, string> {
+    return {
+      [APPSTORE_PROP_PACKAGE]: pkg.packageName,
+      [APPSTORE_PROP_VERSION]: pkg.version,
+      [APPSTORE_PROP_TYPE]: pkg.type,
+      [APPSTORE_PROP_FEED_ID]: feedConfig?.feedId ?? '',
+      [APPSTORE_PROP_FEED_URL]: feedConfig?.url ?? '',
+      [APPSTORE_PROP_INSTALLED_AT]: new Date().toISOString(),
+      [APPSTORE_PROP_UPDATED_AT]: '',
+    };
+  }
+
+  /** Merge updated version/timestamp into an installed webapp's properties. */
+  private async updateInstalledVersion(webappId: string, newVersion: string): Promise<void> {
+    const { data: current } = await sdkGetWebapp({
+      client: this.webAppClient,
+      path: { id: webappId },
+    });
+    const existing = ((current as any)?.properties ?? {}) as Record<string, string>;
+
+    const { error } = await sdkUpdateWebapp({
+      client: this.webAppClient,
+      path: { id: webappId },
+      body: {
+        properties: {
+          ...existing,
+          [APPSTORE_PROP_VERSION]: newVersion,
+          [APPSTORE_PROP_UPDATED_AT]: new Date().toISOString(),
+        },
+      },
+    });
+    if (error) throw new Error(`Failed to update webapp properties after upgrade: ${JSON.stringify(error)}`);
   }
 
   /** Parse an RFC 822-style Packages index into an array of field maps. */
@@ -619,47 +577,5 @@ export class AppStoreService {
     } catch {
       return filenameOrUrl;
     }
-  }
-
-  private parseManifestValue(value: unknown): InstallManifest | null {
-    if (typeof value !== 'string') {
-      return null;
-    }
-
-    try {
-      const manifest = JSON.parse(value) as InstallManifest;
-      if (!manifest?.config?.feedName || !manifest?.installedApps) {
-        return null;
-      }
-
-      return manifest;
-    } catch {
-      return null;
-    }
-  }
-
-  private cloneManifest(manifest: InstallManifest | null): InstallManifest | null {
-    if (!manifest) {
-      return null;
-    }
-
-    return {
-      ...manifest,
-      config: { ...manifest.config },
-      installedApps: { ...manifest.installedApps },
-    };
-  }
-
-  /** Create a default empty manifest. */
-  createEmptyManifest(feedId: string, sourceUrl?: string): InstallManifest {
-    return {
-      version: 1,
-      config: {
-        feedName: FEED_NAME,
-        feedId,
-        ...(sourceUrl ? { sourceUrl } : {}),
-      },
-      installedApps: {},
-    };
   }
 }

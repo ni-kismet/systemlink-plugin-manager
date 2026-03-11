@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { AppPackage, InstalledApp, InstallManifest, DEFAULT_FEED_URL } from '../models/app-store.models';
-// DEFAULT_FEED_URL is used only for createEmptyManifest (the source URL on first onboarding)
+import { AppPackage, InstalledApp, FeedConfig } from '../models/app-store.models';
 import { AppStoreService } from '../services/app-store.service';
 import { isNewerVersion } from '../utils/semver';
 
@@ -14,8 +13,9 @@ import { isNewerVersion } from '../utils/semver';
 export class CatalogComponent implements OnInit {
   packages: AppPackage[] = [];
   filteredPackages: AppPackage[] = [];
+  /** Installed apps in the current workspace, keyed by packageName. */
   installedApps: Record<string, InstalledApp> = {};
-  manifest: InstallManifest | null = null;
+  feedConfigs: FeedConfig[] = [];
   feedId: string | null = null;
 
   searchTerm = '';
@@ -41,15 +41,24 @@ export class CatalogComponent implements OnInit {
         this.hasPermission = false;
       }
 
-      // 2. Load manifest
-      const manifestResult = await this.appStoreService.findManifest();
-      if (manifestResult) {
-        this.manifest = manifestResult;
-        this.installedApps = this.manifest.installedApps;
-        this.feedId = this.manifest.config.feedId;
+      // 2. Load feed configs and installed apps for the current workspace
+      const [feedConfigs, currentWorkspace, allInstallations] = await Promise.all([
+        this.appStoreService.loadFeedConfigs(),
+        this.appStoreService.getWorkspace(),
+        this.appStoreService.listInstalledWebapps().catch(() => [] as any[]),
+      ]);
+      this.feedConfigs = feedConfigs;
+      this.feedId = feedConfigs[0]?.feedId ?? null;
+
+      // Build the per-workspace installed map from the current workspace only
+      this.installedApps = {};
+      for (const inst of allInstallations) {
+        if (inst.workspaceId === currentWorkspace) {
+          this.installedApps[inst.packageName] = inst;
+        }
       }
 
-      // 3. Discover feed
+      // 3. If no feed configured, fall back to feed discovery then go to onboarding
       if (!this.feedId) {
         const feed = await this.appStoreService.discoverFeed();
         if (!feed) {
@@ -105,16 +114,18 @@ export class CatalogComponent implements OnInit {
     if (!this.feedId || this.installingPackage) return;
 
     this.installingPackage = pkg.packageName;
+    const feedConfig = this.feedConfigs.find(f => f.feedId === this.feedId) ?? null;
     try {
-      if (!this.manifest) {
-        this.manifest = this.appStoreService.createEmptyManifest(this.feedId, DEFAULT_FEED_URL);
+      await this.appStoreService.installApp(this.feedId, pkg, feedConfig);
+      // Reload installed status after install
+      const currentWorkspace = await this.appStoreService.getWorkspace();
+      const allInstallations = await this.appStoreService.listInstalledWebapps();
+      this.installedApps = {};
+      for (const inst of allInstallations) {
+        if (inst.workspaceId === currentWorkspace) {
+          this.installedApps[inst.packageName] = inst;
+        }
       }
-      this.manifest = await this.appStoreService.installApp(
-        this.feedId,
-        pkg,
-        this.manifest,
-      );
-      this.installedApps = this.manifest.installedApps;
     } catch (e: any) {
       this.error = `Install failed: ${e.message}`;
     } finally {
@@ -123,3 +134,4 @@ export class CatalogComponent implements OnInit {
   }
 
 }
+

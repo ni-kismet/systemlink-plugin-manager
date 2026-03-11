@@ -13,36 +13,69 @@
   {{ refreshResult }}
 </nimble-banner>
 
-<div *ngIf="!loading && manifest" class="settings-content">
+<div *ngIf="!loading" class="settings-content">
   <section class="settings-section">
-    <h3>Feed Configuration</h3>
-    <dl class="settings-list">
-      <dt>Feed Name</dt>
-      <dd>{{ feedName }}</dd>
-      <dt>Feed ID</dt>
-      <dd class="mono">{{ feedId }}</dd>
-      <dt>Source URL</dt>
-      <dd>{{ feedUrl }}</dd>
-      <dt>Installed Apps</dt>
-      <dd>{{ installedCount }}</dd>
-    </dl>
-
-    <nimble-button appearance="outline" (click)="refreshFeed()" [disabled]="refreshing">
-      {{ refreshing ? 'Refreshing…' : 'Refresh Feed' }}
-    </nimble-button>
+    <h3>Configured Feeds</h3>
     <p class="hint">
-      Checks the source feed for updated packages and applies any available updates.
+      The App Store reads packages from the feeds listed below.
+      Apps can be installed from any configured feed.
     </p>
+
+    <div *ngIf="feeds.length === 0" class="empty-state">
+      <p>No feeds configured. Add a feed to get started.</p>
+    </div>
+
+    <div *ngFor="let feed of feeds" class="feed-row">
+      <dl class="settings-list feed-details">
+        <dt>Name</dt><dd>{{ feed.name }}</dd>
+        <dt>Feed ID</dt><dd class="mono">{{ feed.feedId }}</dd>
+        <dt>Source URL</dt><dd>{{ feed.url }}</dd>
+      </dl>
+      <div class="feed-actions">
+        <nimble-button appearance="outline" (click)="refreshFeed(feed)" [disabled]="!!refreshingFeedId">
+          {{ isRefreshing(feed) ? 'Refreshing…' : 'Refresh' }}
+        </nimble-button>
+        <nimble-button appearance="outline" (click)="removeFeed(feed)" [disabled]="!!refreshingFeedId">
+          Remove
+        </nimble-button>
+      </div>
+    </div>
+
+    <p class="hint">Refresh checks the source feed for updated packages and downloads them.</p>
+  </section>
+
+  <section class="settings-section">
+    <h3>Add Feed</h3>
+    <p class="hint">
+      Enter the URL of an App Store–compatible feed
+      (GitHub Pages URL or internal feed server).
+    </p>
+    <label class="field-label">Feed URL</label>
+    <nimble-text-field
+      [(ngModel)]="addFeedUrl"
+      placeholder="https://…">
+    </nimble-text-field>
+    <label class="field-label">Display Name (optional)</label>
+    <nimble-text-field
+      [(ngModel)]="addFeedName"
+      placeholder="My Internal Feed">
+    </nimble-text-field>
+    <nimble-button appearance="outline" (click)="addFeed()" [disabled]="addingFeed || !addFeedUrl.trim()">
+      {{ addingFeed ? 'Adding…' : 'Replicate & Add Feed' }}
+    </nimble-button>
   </section>
 
   <section class="settings-section">
     <h3>About</h3>
     <p>SystemLink App Store — curated marketplace for SystemLink custom web applications.</p>
-    <p class="hint">Manifest version: {{ manifest.version }}</p>
+    <dl class="settings-list">
+      <dt>Installed Apps</dt>
+      <dd>{{ installedCount }}</dd>
+    </dl>
   </section>
 </div>
 
-<div *ngIf="!loading && !manifest" class="empty-state">
+<div *ngIf="!loading && !hasFeedConfig" class="empty-state">
   <p>No configuration found. Please complete the onboarding wizard.</p>
   <nimble-button appearance="outline" (click)="router.navigate(['/onboarding'])">Start Onboarding</nimble-button>
 </div>
