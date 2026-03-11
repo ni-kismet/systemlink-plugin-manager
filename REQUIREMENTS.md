@@ -370,11 +370,16 @@ slcli appstore feed sync [--feed-id ID]
     # Trigger replication of the feed to pull latest packages.
 
 # ── Publishing (for app authors) ──────────────────────────────
-slcli appstore publish <WEBAPP_DIR> --name TEXT --version TEXT [--category TEXT] [OPTIONS]
+slcli appstore publish <WEBAPP_DIR> [--manifest <FILE>] [OPTIONS]
     # Package a built webapp directory into a .nipkg with App Store metadata,
     # ready for submission to the GitHub feed via PR.
-    # Validates semver format for --version.
-    # Outputs: <package-name>_<version>_windows_all.nipkg + submissions/<name>/manifest.json
+    # Reads metadata from nipkg.config.json in WEBAPP_DIR by default, or from
+    # --manifest <file> if specified. CLI flags override individual config fields.
+    # nipkg.config.json uses the same field names as manifest.json (package,
+    # version, displayName, license, appStoreCategory, etc.) so the submission
+    # manifest is generated automatically by dropping build-only fields.
+    # Validates semver format, required App Store fields, and license presence.
+    # Outputs: <package>_<version>_windows_all.nipkg + submissions/<package>/manifest.json
     # With --prepare-pr: creates a ready-to-commit branch with the .nipkg,
     #   manifest.json, and base64-encoded assets, streamlining the PR workflow.
 
@@ -428,13 +433,12 @@ Developer                                GitHub Repo                          Ma
    `ng build --prod`
        │
 2. Package with
-   `slcli appstore publish dist/browser/
-    --name "My App" --version "1.0.0"
-    --category "Dashboard"
-    --prepare-pr`
+   `slcli appstore publish dist/browser/ --prepare-pr`
+       │ (reads metadata from dist/browser/nipkg.config.json;
+       │  nipkg.config.json uses the same field names as manifest.json)
        │ Generates:
        │  - .nipkg file
-       │  - submissions/my-app/manifest.json
+       │  - submissions/my-app/manifest.json (derived from nipkg.config.json)
        │  - base64-encoded icon + screenshot
        │  - ready-to-commit branch
        ▼
