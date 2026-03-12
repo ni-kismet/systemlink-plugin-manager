@@ -67,50 +67,68 @@ Publishing is **curated**: all submissions go through a PR-based review process 
 
 The catalog is a standard NI Package Manager feed: a `Packages` index file (RFC 822-style, blank-line-delimited stanzas) alongside the `.nipkg` binary files. This is the same format used by `download.ni.com` and already understood by SystemLink's Feed Service.
 
-#### First-class nipkg control fields
+#### NI Package Manager conventions
+
+Control file fields follow the [NI Package Manager control file attributes](https://www.ni.com/docs/en-US/bundle/package-manager/page/control-file-attributes.html) specification:
+
+- **`Package` naming**: Must match `^[a-z0-9][a-z0-9.+-]{2,}$`, max 58 characters, lowercase only.
+- **`Maintainer` format**: `Name <email>` (angle brackets required), e.g., `Acme Corp <apps@acme.com>`.
+- **`XB-` prefix**: Non-standard extended binary attributes **must** use the `XB-` prefix in the control file (e.g., `XB-DisplayName`, `XB-UserVisible`, `XB-Plugin`). This is the standard Debian convention for custom fields adopted by NI Package Manager.
+- **`XB-Plugin: file`**: Required for all packages. Tells NI Package Manager this is a file-based package (no installer plugin).
+- **Feed Service prefix stripping**: The SystemLink Feed Service is expected to **strip the `XB-` prefix** when populating `metadata.attributes` (e.g., `XB-DisplayName` → `DisplayName`). However, this behaviour has not been confirmed to be consistent across all Feed Service versions. Reader code (webapp, CLI) should therefore **check both bare and `XB-`-prefixed attribute names** as a defensive measure — prefer the bare name but fall back to the `XB-`-prefixed variant if absent.
+
+#### Standard control file fields
 
 These fields are written to the nipkg control file and mapped by the Feed Service to **first-class** `metadata.*` properties on the package resource. Consumers should read them from the top-level `metadata` object, **not** from `metadata.attributes`.
 
-| Control Field       | Feed Service `metadata.*` | Purpose                                                                                |
+| Control File Field  | Feed Service `metadata.*` | Purpose                                                                                |
 | ------------------- | ------------------------- | -------------------------------------------------------------------------------------- |
-| `Package`           | `packageName`             | Unique package identifier, first-come-first-served (e.g., `mycompany-asset-dashboard`) |
+| `Package`           | `packageName`             | Unique identifier (`^[a-z0-9][a-z0-9.+-]{2,}$`, max 58 chars), first-come-first-served |
 | `Version`           | `version`                 | **Semantic version** string (`MAJOR.MINOR.PATCH`, e.g., `1.2.0`)                       |
 | `Architecture`      | `architecture`            | Always `windows_all` for App Store packages                                            |
 | `Description`       | `description`             | Multi-line description of the app (≥ 20 characters)                                    |
-| `Section`           | `section`                 | Category for filtering (e.g., `WebApps`, `Notebooks`, `Add-Ons`)                       |
-| `Maintainer`        | `maintainer`              | Author name and email                                                                  |
+| `Section`           | `section`                 | **Type discriminator**: `WebApps`, `Notebooks`, or `Dashboards`                        |
+| `Maintainer`        | `maintainer`              | Author name and email, format: `Name <email>`                                          |
 | `Homepage`          | `homepage`                | Link to project/documentation / source repository                                      |
 | `Tags`              | `tags`                    | Comma-separated search tags                                                            |
 | `Filename`          | `fileName`                | URL to the `.nipkg` file hosted as a GitHub Release asset                              |
 | `Size`              | `size`                    | File size in bytes (max **100 MB**)                                                    |
 | `MD5sum` / `SHA256` | —                         | Integrity checksums (stored in attributes)                                             |
 
+#### Extended binary fields (`XB-` prefixed)
+
+These fields use the `XB-` prefix in the control file. The Feed Service strips the prefix and stores them in `metadata.attributes` under their unprefixed names. Consumers read them via `metadata.attributes.<UnprefixedName>`.
+
+| Control File Field  | Attribute Key (Feed Service) | Purpose                                                         |
+| ------------------- | ---------------------------- | --------------------------------------------------------------- |
+| `XB-Plugin`         | `Plugin`                     | **Required.** Package plugin type. Always `file` for App Store. |
+| `XB-DisplayName`    | `DisplayName`                | Human-readable app name shown in the store UI                   |
+| `XB-UserVisible`    | `UserVisible`                | `yes` for end-user apps (filter out infrastructure packages)    |
+| `XB-DisplayVersion` | `DisplayVersion`             | Friendly version string (same as `Version`)                     |
+
 #### App Store custom attributes
 
-These fields are stored in the nipkg control file but the Feed Service places them in the `metadata.attributes` map. They provide rich catalog browsing metadata that is specific to the App Store.
+Additional metadata fields for rich catalog browsing. These also use the `XB-` prefix in the control file and appear unprefixed in `metadata.attributes`.
 
-| Custom Attribute           | Purpose                                                                                                                              | Example                                     |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| `DisplayName`              | Human-readable app name shown in the store UI                                                                                        | `Asset Tracker`                             |
-| `UserVisible`              | `yes` for end-user apps (filter out infrastructure packages)                                                                         | `yes`                                       |
-| `DisplayVersion`           | Friendly version string (same as `Version`)                                                                                          | `1.2.0`                                     |
-| `AppStoreCategory`         | Fine-grained category                                                                                                                | `Dashboard`, `Data Analysis`, `Integration` |
-| `AppStoreScreenshot1`      | **Base64-encoded** screenshot image (PNG, max 800x600). **Max 3 screenshots** per app (`AppStoreScreenshot1`–`AppStoreScreenshot3`). | `data:image/png;base64,iVBOR...`            |
-| `AppStoreScreenshot2`      | Second screenshot (optional)                                                                                                         | `data:image/png;base64,...`                 |
-| `AppStoreScreenshot3`      | Third screenshot (optional)                                                                                                          | `data:image/png;base64,...`                 |
-| `AppStoreIcon`             | **Base64-encoded** app icon (SVG or PNG, max 128x128)                                                                                | `data:image/svg+xml;base64,PH...`           |
-| `AppStoreAuthor`           | Display author name                                                                                                                  | `Acme Corp`                                 |
-| `AppStoreMinServerVersion` | Minimum SystemLink server version                                                                                                    | `2024 Q4`                                   |
-| `AppStoreType`             | Resource type installed                                                                                                              | `webapp`, `bundle`                          |
-| `AppStoreTags`             | Comma-separated search tags (mirrors `Tags` for attribute-only consumers)                                                            | `assets,calibration,dashboard`              |
-| `AppStoreRepo`             | Source code repository URL (mirrors `Homepage` for attribute-only consumers)                                                         | `https://github.com/acme/asset-dash`        |
-| `AppStoreLicense`          | License identifier (required)                                                                                                        | `MIT`, `Apache-2.0`, `Proprietary`          |
+| Control File Field            | Attribute Key (Feed Service) | Purpose                                                                                                                              | Example                                     |
+| ----------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| `XB-AppStoreCategory`         | `AppStoreCategory`           | Fine-grained category                                                                                                                | `Dashboard`, `Data Analysis`, `Integration` |
+| `XB-AppStoreScreenshot1`      | `AppStoreScreenshot1`        | **Base64-encoded** screenshot image (PNG, max 800x600). **Max 3 screenshots** per app (`AppStoreScreenshot1`–`AppStoreScreenshot3`). | `data:image/png;base64,iVBOR...`            |
+| `XB-AppStoreScreenshot2`      | `AppStoreScreenshot2`        | Second screenshot (optional)                                                                                                         | `data:image/png;base64,...`                 |
+| `XB-AppStoreScreenshot3`      | `AppStoreScreenshot3`        | Third screenshot (optional)                                                                                                          | `data:image/png;base64,...`                 |
+| `XB-AppStoreIcon`             | `AppStoreIcon`               | **Base64-encoded** app icon (SVG or PNG, max 128x128)                                                                                | `data:image/svg+xml;base64,PH...`           |
+| `XB-AppStoreAuthor`           | `AppStoreAuthor`             | Display author name                                                                                                                  | `Acme Corp`                                 |
+| `XB-AppStoreMinServerVersion` | `AppStoreMinServerVersion`   | Minimum SystemLink server version                                                                                                    | `2024 Q4`                                   |
+| `XB-AppStoreType`             | `AppStoreType`               | Resource type (mirrors `Section`): `webapp`, `notebook`, `dashboard`                                                                 | `webapp`                                    |
+| `XB-AppStoreTags`             | `AppStoreTags`               | Comma-separated search tags (mirrors `Tags` for attribute-only consumers)                                                            | `assets,calibration,dashboard`              |
+| `XB-AppStoreRepo`             | `AppStoreRepo`               | Source code repository URL (mirrors `Homepage` for attribute-only consumers)                                                         | `https://github.com/acme/asset-dash`        |
+| `XB-AppStoreLicense`          | `AppStoreLicense`            | License identifier (required)                                                                                                        | `MIT`, `Apache-2.0`, `Proprietary`          |
 
 > **Why base64?** CSP prevents the webapp from loading images from external origins (GitHub). Base64-encoding icons and screenshots directly in the package `attributes` ensures they survive feed replication and are available to the webapp via the Feed Service API without any external requests. This does increase the `Packages` file size (several megabytes is acceptable), but keeps the architecture simple and CSP-compliant.
 >
 > **Screenshots are capped at 3 per app** to limit `Packages` file growth. The compressed `Packages.gz` should be used by default for feed replication to reduce bandwidth.
 >
-> **First-class vs. attributes**: The Feed Service automatically maps standard nipkg control fields (`Package`, `Version`, `Description`, `Section`, `Maintainer`, `Homepage`, `Tags`) to first-class `metadata` properties. Consumers (webapp, CLI) should prefer reading from the first-class properties. Fields that don't have a first-class mapping (`DisplayName`, `AppStore*`) go into `metadata.attributes` and must be read from there.
+> **First-class vs. attributes**: The Feed Service automatically maps standard nipkg control fields (`Package`, `Version`, `Description`, `Section`, `Maintainer`, `Homepage`, `Tags`) to first-class `metadata` properties. Consumers (webapp, CLI) should prefer reading from the first-class properties. Fields that don't have a first-class mapping (`XB-DisplayName`, `XB-AppStore*`) go into `metadata.attributes` (unprefixed) and must be read from there.
 
 ### 3.2 Repository structure
 
@@ -207,8 +225,10 @@ If permissions are missing, display a `<nimble-banner severity="warning">` expla
 8. User clicks card → detail drawer/page with full info, base64-decoded screenshot
 9. User clicks "Install" → choose target workspace(s) → for each workspace:
    a. Download `.nipkg` from feed via `getNifeedV1FeedsByFeedIdFilesByFileName()`
-   b. Create a new webapp: `createWebapp({ name, workspace })`, then set `appstore.*` metadata properties via a separate `updateWebapp()` call (the WebApp Service rejects custom property keys on the create endpoint — see §8)
-   c. Upload the `.nipkg` directly: `updateContent({ id }, nipkgBlob)` — no extraction needed
+   b. Create a new webapp in two steps:
+   - `createWebapp({ name, workspace })` — the WebApp Service rejects custom property keys on the create endpoint, so `properties` must **not** be passed here
+   - `updateWebapp(id, { properties })` — set all `appstore.*` metadata (see §8) in a subsequent update call
+     c. Upload the `.nipkg` directly: `updateContent({ id }, nipkgBlob)` — no extraction needed
 10. Status updates via banner confirmation; installed status refreshed by re-listing webapps
 
 #### Upgrade
@@ -233,27 +253,26 @@ If permissions are missing, display a `<nimble-banner severity="warning">` expla
 
 ### 4.4 API surface needed
 
-| Operation                 | Service        | SDK client         | SDK function                                                                                                                        | Endpoint                                                |
-| ------------------------- | -------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| List feeds (discovery)    | Feed Service   | `#feeds`           | `getNifeedV1Feeds()`                                                                                                                | `GET /nifeed/v1/feeds`                                  |
-| List feed packages        | Feed Service   | `#feeds`           | `getNifeedV1FeedsByFeedIdPackages()`                                                                                                | `GET /nifeed/v1/feeds/{feedId}/packages`                |
-| Get single package        | Feed Service   | `#feeds`           | `getNifeedV1PackagesByPackageId()`                                                                                                  | `GET /nifeed/v1/packages/{packageId}`                   |
-| Download Packages index   | Feed Service   | `#feeds`           | `getNifeedV1FeedsByFeedIdFilesPackages()`                                                                                           | `GET /nifeed/v1/feeds/{feedId}/files/Packages`          |
-| Download package file     | Feed Service   | `#feeds`           | `getNifeedV1FeedsByFeedIdFilesByFileName()`                                                                                         | `GET /nifeed/v1/feeds/{feedId}/files/{fileName}`        |
-| Trigger feed sync         | Feed Service   | `#feeds`           | `postNifeedV1ReplicateFeed()`                                                                                                       | `POST /nifeed/v1/replicate-feed`                        |
-| Check for updates         | Feed Service   | `#feeds`           | `postNifeedV1FeedsByFeedIdCheckForUpdates()`                                                                                        | `POST /nifeed/v1/feeds/{feedId}/check-for-updates`      |
-| Apply updates             | Feed Service   | `#feeds`           | `postNifeedV1FeedsByFeedIdApplyUpdates()`                                                                                           | `POST /nifeed/v1/feeds/{feedId}/apply-updates`          |
-| Create webapp             | WebApp Service | `#web-application` | `createWebapp({ body: { name, workspace } })` then `updateWebapp()` to set `appstore.*` properties (custom keys rejected on create) | `POST /niapp/v1/webapps` + `PUT /niapp/v1/webapps/{id}` |
-| Upload `.nipkg` to webapp | WebApp Service | `#web-application` | `updateContent({ path: { id }, body: nipkgBlob })`                                                                                  | `PUT /niapp/v1/webapps/{id}/content`                    |
-| List installed webapps    | WebApp Service | `#web-application` | `listWebapps({ query: { workspace } })`                                                                                             | `GET /niapp/v1/webapps`                                 |
-| Query webapps (advanced)  | WebApp Service | `#web-application` | `query({ body: { filter, take, orderBy } })`                                                                                        | `POST /niapp/v1/query-webapps`                          |
-| Get webapp details        | WebApp Service | `#web-application` | `getWebapp({ path: { id } })`                                                                                                       | `GET /niapp/v1/webapps/{id}`                            |
-| Update webapp metadata    | WebApp Service | `#web-application` | `updateWebapp({ path: { id }, body })`                                                                                              | `PUT /niapp/v1/webapps/{id}`                            |
-| Get webapp details        | WebApp Service | `#web-application` | `getWebapp({ path: { id } })`                                                                                                       | `GET /niapp/v1/webapps/{id}`                            |
-| Delete a webapp           | WebApp Service | `#web-application` | `deleteWebapp({ path: { id } })`                                                                                                    | `DELETE /niapp/v1/webapps/{id}`                         |
-| Read feed config          | WebApp Service | `#web-application` | `getWebapp({ path: { id } })` then read `properties['appstore.feeds']`                                                              | `GET /niapp/v1/webapps/{appStoreId}`                    |
-| Save feed config          | WebApp Service | `#web-application` | `updateWebapp({ path: { id }, body: { properties } })`                                                                              | `PUT /niapp/v1/webapps/{appStoreId}`                    |
-| Discover installed apps   | WebApp Service | `#web-application` | `listWebapps()` paginated, filter by `properties['appstore.packageName']`                                                           | `GET /niapp/v1/webapps`                                 |
+| Operation                 | Service        | SDK client         | SDK function                                                              | Endpoint                                           |
+| ------------------------- | -------------- | ------------------ | ------------------------------------------------------------------------- | -------------------------------------------------- |
+| List feeds (discovery)    | Feed Service   | `#feeds`           | `getNifeedV1Feeds()`                                                      | `GET /nifeed/v1/feeds`                             |
+| List feed packages        | Feed Service   | `#feeds`           | `getNifeedV1FeedsByFeedIdPackages()`                                      | `GET /nifeed/v1/feeds/{feedId}/packages`           |
+| Get single package        | Feed Service   | `#feeds`           | `getNifeedV1PackagesByPackageId()`                                        | `GET /nifeed/v1/packages/{packageId}`              |
+| Download Packages index   | Feed Service   | `#feeds`           | `getNifeedV1FeedsByFeedIdFilesPackages()`                                 | `GET /nifeed/v1/feeds/{feedId}/files/Packages`     |
+| Download package file     | Feed Service   | `#feeds`           | `getNifeedV1FeedsByFeedIdFilesByFileName()`                               | `GET /nifeed/v1/feeds/{feedId}/files/{fileName}`   |
+| Trigger feed sync         | Feed Service   | `#feeds`           | `postNifeedV1ReplicateFeed()`                                             | `POST /nifeed/v1/replicate-feed`                   |
+| Check for updates         | Feed Service   | `#feeds`           | `postNifeedV1FeedsByFeedIdCheckForUpdates()`                              | `POST /nifeed/v1/feeds/{feedId}/check-for-updates` |
+| Apply updates             | Feed Service   | `#feeds`           | `postNifeedV1FeedsByFeedIdApplyUpdates()`                                 | `POST /nifeed/v1/feeds/{feedId}/apply-updates`     |
+| Create webapp (metadata)  | WebApp Service | `#web-application` | `createWebapp({ body: { name, workspace, properties } })`                 | `POST /niapp/v1/webapps`                           |
+| Upload `.nipkg` to webapp | WebApp Service | `#web-application` | `updateContent({ path: { id }, body: nipkgBlob })`                        | `PUT /niapp/v1/webapps/{id}/content`               |
+| List installed webapps    | WebApp Service | `#web-application` | `listWebapps({ query: { workspace } })`                                   | `GET /niapp/v1/webapps`                            |
+| Query webapps (advanced)  | WebApp Service | `#web-application` | `query({ body: { filter, take, orderBy } })`                              | `POST /niapp/v1/query-webapps`                     |
+| Get webapp details        | WebApp Service | `#web-application` | `getWebapp({ path: { id } })`                                             | `GET /niapp/v1/webapps/{id}`                       |
+| Update webapp metadata    | WebApp Service | `#web-application` | `updateWebapp({ path: { id }, body })`                                    | `PUT /niapp/v1/webapps/{id}`                       |
+| Delete a webapp           | WebApp Service | `#web-application` | `deleteWebapp({ path: { id } })`                                          | `DELETE /niapp/v1/webapps/{id}`                    |
+| Read feed config          | WebApp Service | `#web-application` | `getWebapp({ path: { id } })` then read `properties['appstore.feeds']`    | `GET /niapp/v1/webapps/{appStoreId}`               |
+| Save feed config          | WebApp Service | `#web-application` | `updateWebapp({ path: { id }, body: { properties } })`                    | `PUT /niapp/v1/webapps/{appStoreId}`               |
+| Discover installed apps   | WebApp Service | `#web-application` | `listWebapps()` paginated, filter by `properties['appstore.packageName']` | `GET /niapp/v1/webapps`                            |
 
 > **Note:** The WebApp Service accepts `.nipkg` files directly via `updateContent()` — no browser-side extraction is required. The `body` parameter accepts a `Blob | File`.
 
@@ -286,15 +305,15 @@ When the App Store webapp launches and finds no feed configuration in its own pr
 │  [  Replicate Feed  ]                                            │
 │                                                                  │
 │  Step 2 of 3 — Add another feed (optional)                       │
-│  The main App Store feed has been registered. You can optionally  │
-│  add an additional feed (e.g. an internal feed).                  │
 │                                                                  │
-│  Feed URL: [                                                 ]   │
-│  Display Name (optional): [                                  ]   │
+│  The main App Store feed has been registered. You can optionally │
+│  add an additional feed — for example, an internal feed hosted   │
+│  within your organisation.                                       │
 │                                                                  │
-│  [  Replicate & Add Feed  ]  [  Skip  ]                          │
+│  Feed URL: [                                                  ]  │
+│  Display Name (optional): [                                   ]  │
 │                                                                  │
-│  You can add more feeds at any time from the Settings tab.        │
+│  [  Replicate & Add Feed  ]    [  Skip  ]                        │
 │                                                                  │
 │  Step 3 of 3 — You're all set!                                   │
 │  Your App Store is ready. Browse apps and install them.           │
@@ -306,9 +325,9 @@ When the App Store webapp launches and finds no feed configuration in its own pr
 The onboarding flow:
 
 1. **Pre-fills the GitHub feed URL** with the official App Store feed URL
-2. **Replicates the feed and auto-saves the configuration** — on successful replication via `postNifeedV1ReplicateFeed()`, the feed config is immediately written to the App Store webapp's `appstore.feeds` property via `updateWebapp()`. No separate "Save" step is needed.
-3. **Handles feed-already-exists conflicts** — if replication fails because a feed with the same URL already exists, the wizard offers two options: "Use Existing Feed" (adopt the existing feed ID) or "Replace Feed" (delete the old feed and re-replicate). In both cases the feed config is saved automatically.
-4. **Offers an optional additional feed** — Step 2 allows users to add another feed (e.g. an internal company feed) by providing a URL and optional display name. Users can also skip this step; additional feeds can always be added later from the Settings tab.
+2. **Replicates the feed** on the user's behalf via `postNifeedV1ReplicateFeed()` — the user does not need to manually configure the Feed Service
+3. **Automatically saves the feed configuration** by writing a `FeedConfig` entry to the App Store webapp's own `appstore.feeds` property via `updateWebapp()` — no separate "Save" button required
+4. **Offers an optional second feed** (Step 2) — the user can register an additional feed (e.g., an internal company feed) or skip this step. Additional feeds can also be added later from the Settings view.
 5. **Redirects to the catalog** once setup is complete
 
 ### 4.7 Feed refresh
@@ -330,7 +349,7 @@ Extend `slcli` with a new `appstore` command group for power users and CI/CD pip
 
 ```bash
 # ── Discovery ──────────────────────────────────────────────────
-slcli appstore list [--category TEXT] [--search TEXT] [--type webapp|notebook|bundle] [--source github|systemlink]
+slcli appstore list [--category TEXT] [--search TEXT] [--type webapp|notebook|dashboard] [--source github|systemlink]
     # List available apps from the configured feed.
     # Default: reads from the local replicated feed on the connected SystemLink server.
     # With --source github: reads the Packages file directly from GitHub
@@ -494,8 +513,8 @@ Developer                                GitHub Repo                          Ma
 ### 6.3 Requirements for submitted apps
 
 - Must include all required `Packages` metadata fields (see §3.1)
-- Must include custom App Store attributes (`AppStoreCategory`, `AppStoreType`, `AppStoreLicense`, `AppStoreAuthor`)
-- `.nipkg` must contain a valid webapp (index.html at root) or notebook (.ipynb)
+- Must include custom App Store attributes (`XB-AppStoreCategory`, `XB-AppStoreType`, `XB-AppStoreLicense`, `XB-AppStoreAuthor`) — see §3.1 for all required `XB-` prefixed fields
+- `.nipkg` must contain a valid resource (webapp: `index.html` at root; notebook: `.ipynb` file; dashboard: `.json` file)
 - No external network calls outside of SystemLink's own APIs (CSP compliance)
 - Must provide an `AppStoreIcon` (SVG or PNG, max 128x128) — CI will base64-encode it
 - Description must be ≥ 20 characters
@@ -546,23 +565,26 @@ A `.nipkg` package for the App Store is the standard NI Package format — a ZIP
 ### 7.2 Install flow
 
 1. CLI/webapp downloads `.nipkg` from the feed via `getNifeedV1FeedsByFeedIdFilesByFileName()`
-2. Creates a new webapp: `createWebapp({ body: { name, workspace } })` — returns the new webapp `id`. Custom `appstore.*` properties are set via a subsequent `updateWebapp()` call because the WebApp Service rejects custom property keys on the create endpoint.
+2. Creates a new webapp in two steps:
+   a. `createWebapp({ body: { name, workspace } })` — the WebApp Service rejects custom property keys at create time — returns the new webapp `id`
+   b. `updateWebapp({ path: { id }, body: { properties } })` — sets all `appstore.*` metadata (see §8)
 3. Uploads the `.nipkg` directly: `updateContent({ path: { id }, body: nipkgBlob })` — the WebApp Service handles extraction internally
-4. The created webapp's `appstore.*` properties (see §8.2) record the install metadata — no separate manifest storage is needed
+4. The `appstore.*` properties on the webapp (see §8.2) serve as the install record — no separate tracking step required
 
 ### 7.3 Upgrade flow
 
 1. Download new version `.nipkg` from the feed
 2. Upload to the existing webapp: `updateContent({ path: { existingId }, body: nipkgBlob })` — the webapp ID is preserved
-3. Update `appstore.version` and `appstore.updatedAt` properties on the existing webapp via `updateWebapp()`
+3. Update `appstore.version` and `appstore.updatedAt` properties on the existing webapp via `updateWebapp(id, { properties: { ... } })`
 
 ### 7.4 Uninstall flow
 
-1. `deleteWebapp({ path: { id } })` — removes the webapp and its `appstore.*` properties together; no separate cleanup required
+1. `deleteWebapp({ path: { id } })` — removes the webapp
+2. No further cleanup required — the `appstore.*` properties are deleted together with the webapp
 
 ---
 
-## 8. Install Manifest (WebApp Service Properties)
+## 8. Install Manifest (Tag Service — Per Workspace)
 
 App Store state is persisted entirely within the **WebApp Service** using the `properties` field available on every webapp resource. No separate storage service (Tag Service, database, etc.) is required.
 
@@ -596,19 +618,17 @@ Both the official curated feed and any customer-provided feeds (replicated from 
 
 When an app is installed through the App Store, the created webapp receives a set of well-known `appstore.*` properties that mark it as App Store-managed and record the install metadata:
 
-| Property key           | Description                                                  | Example                      |
-| ---------------------- | ------------------------------------------------------------ | ---------------------------- |
-| `appstore.packageName` | App Store package identifier                                 | `mycompany-asset-dashboard`  |
-| `appstore.version`     | Installed semantic version                                   | `1.2.0`                      |
-| `appstore.type`        | Resource type                                                | `webapp`                     |
-| `appstore.feedId`      | Feed Service feed ID this was installed from                 | `db7c157d-…`                 |
-| `appstore.feedUrl`     | Source URL of the feed                                       | `https://<org>.github.io/…/` |
-| `appstore.installedAt` | ISO 8601 install timestamp                                   | `2026-03-01T10:00:00Z`       |
-| `appstore.updatedAt`   | ISO 8601 last-upgrade timestamp (absent until first upgrade) | `2026-03-09T14:30:00Z`       |
+| Property key           | Description                                                      | Example                      |
+| ---------------------- | ---------------------------------------------------------------- | ---------------------------- |
+| `appstore.packageName` | App Store package identifier                                     | `mycompany-asset-dashboard`  |
+| `appstore.version`     | Installed semantic version                                       | `1.2.0`                      |
+| `appstore.type`        | Resource type                                                    | `webapp`                     |
+| `appstore.feedId`      | Feed Service feed ID this was installed from                     | `db7c157d-…`                 |
+| `appstore.feedUrl`     | Source URL of the feed                                           | `https://<org>.github.io/…/` |
+| `appstore.installedAt` | ISO 8601 install timestamp                                       | `2026-03-01T10:00:00Z`       |
+| `appstore.updatedAt`   | ISO 8601 last-upgrade timestamp (empty string if never upgraded) | `2026-03-09T14:30:00Z`       |
 
 The presence of `appstore.packageName` on a webapp is the signal that it was installed through the App Store.
-
-> **API constraint — empty string values:** The WebApp Service rejects property values that are empty strings. Properties that have no value (e.g., `appstore.updatedAt` before any upgrade) must be **omitted** rather than set to `""`. The webapp strips empty values before every `updateWebapp()` call.
 
 ### 8.3 Discovering installed apps
 

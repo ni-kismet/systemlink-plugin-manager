@@ -577,33 +577,38 @@ export class AppStoreService {
   }
 
   /** Map a Feed Service Package resource to an AppPackage.
-   * First-class fields come from metadata.*, custom App Store fields from metadata.attributes. */
+   * First-class fields come from metadata.*, custom App Store fields from metadata.attributes.
+   * The Feed Service is expected to strip the XB- prefix from attribute names, but this has
+   * not been confirmed to be consistent across all versions. We therefore check bare names
+   * first and fall back to XB-prefixed variants as a defensive measure. */
   private mapPackageResource(pkg: Package): AppPackage {
     const m = pkg.metadata ?? {};
     const attrs = m.attributes ?? {};
+    // Helper: look up a key trying the bare name first, then the XB- prefixed variant.
+    const attr = (key: string): string => attrs[key] ?? attrs[`XB-${key}`] ?? '';
     return {
       packageName: m.packageName ?? '',
-      version: m.version ?? attrs['DisplayVersion'] ?? '',
-      displayName: attrs['DisplayName'] ?? m.packageName ?? '',
+      version: m.version ?? attr('DisplayVersion'),
+      displayName: attr('DisplayName') || (m.packageName ?? ''),
       description: m.description ?? '',
       section: m.section ?? '',
       maintainer: m.maintainer ?? '',
       homepage: m.homepage ?? '',
-      icon: attrs['AppStoreIcon'] ?? '',
+      icon: attr('AppStoreIcon'),
       screenshots: [
-        attrs['AppStoreScreenshot1'],
-        attrs['AppStoreScreenshot2'],
-        attrs['AppStoreScreenshot3'],
+        attr('AppStoreScreenshot1'),
+        attr('AppStoreScreenshot2'),
+        attr('AppStoreScreenshot3'),
       ].filter((v): v is string => !!v),
-      category: attrs['AppStoreCategory'] ?? '',
-      type: attrs['AppStoreType'] ?? 'webapp',
-      author: attrs['AppStoreAuthor'] ?? '',
-      license: attrs['AppStoreLicense'] ?? '',
-      tags: m.tags ?? attrs['AppStoreTags'] ?? '',
-      repo: attrs['AppStoreRepo'] ?? m.homepage ?? '',
-      minServerVersion: attrs['AppStoreMinServerVersion'] ?? '',
+      category: attr('AppStoreCategory'),
+      type: attr('AppStoreType') || 'webapp',
+      author: attr('AppStoreAuthor'),
+      license: attr('AppStoreLicense'),
+      tags: m.tags ?? attr('AppStoreTags'),
+      repo: attr('AppStoreRepo') || (m.homepage ?? ''),
+      minServerVersion: attr('AppStoreMinServerVersion'),
       size: m.size ?? 0,
-      sha256: attrs['SHA256'] ?? '',
+      sha256: attr('SHA256'),
       filename: m.fileName ?? '',
       feedPackageId: pkg.id ?? undefined,
     };
@@ -611,8 +616,9 @@ export class AppStoreService {
 
   private isUserVisibleWebappResource(pkg: Package): boolean {
     const attrs = pkg.metadata?.attributes ?? {};
-    if (attrs['UserVisible'] === 'no') return false;
-    const packageType = attrs['AppStoreType']?.trim().toLowerCase();
+    const attr = (key: string): string => attrs[key] ?? attrs[`XB-${key}`] ?? '';
+    if (attr('UserVisible') === 'no') return false;
+    const packageType = attr('AppStoreType').trim().toLowerCase();
     if (packageType) return packageType === 'webapp';
     return (pkg.metadata?.section ?? '').trim() === 'WebApps';
   }
