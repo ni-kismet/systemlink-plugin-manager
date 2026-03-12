@@ -150,6 +150,18 @@ export class AppDetailComponent implements OnInit {
     return toInstall.length === 0 && toRemove.length === 0;
   }
 
+  getResourceUrl(installation: WorkspaceInstallation): string {
+    if (installation.type === 'notebook') {
+      return `/jupyter/`;
+    } else if (installation.type === 'dashboard') {
+      return `/dashboardhost/d/${encodeURIComponent(installation.webappId)}`;
+    }
+    // webapp: /webapps/app/{workspace-name}/{webapp-name}
+    const ws = encodeURIComponent(installation.workspaceName);
+    const name = encodeURIComponent(installation.resourceName || installation.packageName);
+    return `/webapps/app/${ws}/${name}`;
+  }
+
   get installedWorkspaceNames(): string {
     return this.workspaceInstallations.map(installation => installation.workspaceName).join(', ');
   }

@@ -95,6 +95,13 @@
                 <span *ngIf="installation.isCurrentWorkspace">(current)</span>
               </span>
               <span class="workspace-installation-version">v{{ installation.version }}</span>
+              <span class="workspace-installation-spacer"></span>
+              <nimble-anchor-button
+                [href]="getResourceUrl(installation)"
+                target="_blank"
+                appearance="ghost">
+                Open
+              </nimble-anchor-button>
             </div>
           </div>
         </div>

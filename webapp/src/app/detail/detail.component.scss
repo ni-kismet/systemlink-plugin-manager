@@ -160,10 +160,14 @@
 
 .workspace-installation-row {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--sl-app-space-3);
   padding: var(--sl-app-space-2) 0;
   border-bottom: 1px solid color-mix(in srgb, var(--sl-app-color-border) 60%, transparent);
+}
+
+.workspace-installation-spacer {
+  flex: 1;
 }
 
 .workspace-installation-name {

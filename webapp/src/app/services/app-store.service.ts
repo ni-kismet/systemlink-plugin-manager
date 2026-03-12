@@ -466,6 +466,7 @@ export class AppStoreService {
       const workspaceId = webapp.workspace ?? '';
       installations.push({
         packageName,
+        resourceName: webapp.name ?? '',
         version: props[APPSTORE_PROP_VERSION] ?? '',
         type: (props[APPSTORE_PROP_TYPE] ?? 'webapp') as AppType,
         webappId: webapp.id ?? '',
@@ -488,6 +489,7 @@ export class AppStoreService {
       const workspaceId = nb.workspace ?? '';
       installations.push({
         packageName,
+        resourceName: nb.name ?? '',
         version: props[APPSTORE_PROP_VERSION] ?? '',
         type: 'notebook',
         webappId: nb.id ?? '',
@@ -530,6 +532,7 @@ export class AppStoreService {
 
       installations.push({
         packageName,
+        resourceName: db.title ?? '',
         version: verTag?.substring('appstore-ver-'.length) ?? '',
         type: 'dashboard',
         webappId: String(db.uid ?? db.id ?? ''),

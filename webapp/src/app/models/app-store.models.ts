@@ -85,6 +85,8 @@ export interface WorkspaceInfo {
 export interface WorkspaceInstallation extends InstalledApp {
   /** App Store package name (from appstore.packageName property). */
   packageName: string;
+  /** Display name of the installed resource (e.g. the webapp name). */
+  resourceName: string;
   workspaceId: string;
   workspaceName: string;
   isCurrentWorkspace: boolean;
