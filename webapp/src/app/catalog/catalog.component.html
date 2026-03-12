@@ -1,6 +1,11 @@
 <app-permission-banner [hasPermission]="hasPermission"></app-permission-banner>
 
 <div class="catalog-toolbar">
+  <nimble-select [(ngModel)]="selectedType" (ngModelChange)="applyFilters()">
+    <nimble-list-option [value]="''">All Types</nimble-list-option>
+    <nimble-list-option *ngFor="let t of appTypes" [value]="t">{{ appTypeLabels[t] }}</nimble-list-option>
+  </nimble-select>
+
   <nimble-select [(ngModel)]="selectedCategory" (ngModelChange)="applyFilters()">
     <nimble-list-option [value]="''">All Categories</nimble-list-option>
     <nimble-list-option *ngFor="let cat of categories" [value]="cat">{{ cat }}</nimble-list-option>

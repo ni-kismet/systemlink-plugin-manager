@@ -107,6 +107,19 @@
   gap: var(--sl-app-space-2);
 }
 
+.type-group {
+  margin-bottom: var(--sl-app-space-4);
+}
+
+.type-group-header {
+  font: var(--sl-app-font-group-header);
+  text-transform: uppercase;
+  color: var(--ni-nimble-group-header-font-color);
+  margin: var(--sl-app-space-4) 0 var(--sl-app-space-2);
+  padding-bottom: var(--sl-app-space-1);
+  border-bottom: 1px solid var(--sl-app-color-border);
+}
+
 @media (max-width: 768px) {
   .installed-header,
   .installed-row {

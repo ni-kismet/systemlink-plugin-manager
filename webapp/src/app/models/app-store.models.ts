@@ -57,13 +57,13 @@ export interface FeedConfig {
   feedId: string;
 }
 
-/** Tracks a single installed app; derived from the webapp's own properties. */
+/** Tracks a single installed app; derived from the resource's own properties. */
 export interface InstalledApp {
   /** Semantic version. */
   version: string;
-  /** Resource type installed (webapp, notebook, etc.). */
-  type: string;
-  /** WebApp Service webapp ID. */
+  /** Resource type installed (webapp, notebook, dashboard). */
+  type: AppType;
+  /** Primary resource ID: webapp ID, notebook ID, or dashboard UID. */
   webappId: string;
   /** Feed Service feed ID this app was installed from. */
   feedId: string;
@@ -98,6 +98,15 @@ export interface AppWithStatus extends AppPackage {
   upgradeAvailable: boolean;
 }
 
+/** Supported resource types for catalog items. */
+export type AppType = 'webapp' | 'notebook' | 'dashboard';
+export const APP_TYPES: AppType[] = ['webapp', 'notebook', 'dashboard'];
+export const APP_TYPE_LABELS: Record<AppType, string> = {
+  webapp: 'Web Apps',
+  notebook: 'Notebooks',
+  dashboard: 'Dashboards',
+};
+
 /** Default feed URL for the official App Store feed source. */
 export const DEFAULT_FEED_URL = 'https://ni-kismet.github.io/systemlink-app-store/';
 
@@ -117,3 +126,4 @@ export const APPSTORE_PROP_FEED_ID = 'appstore.feedId';
 export const APPSTORE_PROP_FEED_URL = 'appstore.feedUrl';
 export const APPSTORE_PROP_INSTALLED_AT = 'appstore.installedAt';
 export const APPSTORE_PROP_UPDATED_AT = 'appstore.updatedAt';
+

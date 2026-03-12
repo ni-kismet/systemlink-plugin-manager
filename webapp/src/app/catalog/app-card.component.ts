@@ -19,6 +19,7 @@ import { AppPackage } from '../models/app-store.models';
         <span class="card-author">{{ pkg.author }}</span>
         <span class="card-description">{{ pkg.description | slice:0:120 }}{{ pkg.description.length > 120 ? '…' : '' }}</span>
         <div class="card-footer">
+          <span class="card-type" *ngIf="pkg.type && pkg.type !== 'webapp'">{{ pkg.type }}</span>
           <span class="card-category">{{ pkg.category }}</span>
           <span class="card-version">v{{ pkg.version }}</span>
         </div>

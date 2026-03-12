@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { AppPackage, InstalledApp, FeedConfig } from '../models/app-store.models';
+import { AppPackage, AppType, APP_TYPES, APP_TYPE_LABELS, InstalledApp, FeedConfig } from '../models/app-store.models';
 import { AppStoreService } from '../services/app-store.service';
 import { isNewerVersion } from '../utils/semver';
 
@@ -20,6 +20,9 @@ export class CatalogComponent implements OnInit {
 
   searchTerm = '';
   selectedCategory = '';
+  selectedType: AppType | '' = '';
+  appTypes = APP_TYPES;
+  appTypeLabels = APP_TYPE_LABELS;
   categories: string[] = [];
 
   hasPermission = true;
@@ -82,6 +85,9 @@ export class CatalogComponent implements OnInit {
 
   applyFilters(): void {
     let result = this.packages;
+    if (this.selectedType) {
+      result = result.filter(p => (p.type || 'webapp').toLowerCase() === this.selectedType);
+    }
     if (this.searchTerm) {
       const term = this.searchTerm.toLowerCase();
       result = result.filter(

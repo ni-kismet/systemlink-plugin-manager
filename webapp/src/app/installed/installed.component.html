@@ -25,40 +25,45 @@
   <nimble-button appearance="outline" (click)="router.navigate(['/catalog'])">Browse Catalog</nimble-button>
 </div>
 
-<div *ngIf="!loading" class="installed-list">
-  <div *ngFor="let entry of entries" class="installed-row" (click)="openDetail(entry)">
-    <div class="row-info">
-      <span class="row-name">{{ entry.catalogPkg?.displayName ?? entry.packageName }}</span>
-      <span class="row-version">
-        {{ getInstalledVersionLabel(entry) }}
-        <span *ngIf="entry.upgradeAvailable && entry.catalogPkg" class="upgrade-badge">
-          → v{{ entry.catalogPkg.version }}
-        </span>
-      </span>
-      <span class="row-meta">
-        {{ entry.installations[0].type }} · {{ getWorkspaceSummary(entry) }} · Last activity {{ getLastActivity(entry) | date:'mediumDate' }}
-      </span>
-      <div class="workspace-list">
-        <span *ngFor="let installation of entry.installations" class="workspace-pill" [class.current]="installation.isCurrentWorkspace">
-          {{ installation.workspaceName }}
-          <span *ngIf="installation.isCurrentWorkspace">(current)</span>
-        </span>
+<div *ngIf="!loading && entries.length > 0">
+  <div *ngFor="let group of typeGroups" class="type-group">
+    <h3 class="type-group-header">{{ group.label }}</h3>
+    <div class="installed-list">
+      <div *ngFor="let entry of group.entries" class="installed-row" (click)="openDetail(entry)">
+        <div class="row-info">
+          <span class="row-name">{{ entry.catalogPkg?.displayName ?? entry.packageName }}</span>
+          <span class="row-version">
+            {{ getInstalledVersionLabel(entry) }}
+            <span *ngIf="entry.upgradeAvailable && entry.catalogPkg" class="upgrade-badge">
+              → v{{ entry.catalogPkg.version }}
+            </span>
+          </span>
+          <span class="row-meta">
+            {{ entry.installations[0].type }} · {{ getWorkspaceSummary(entry) }} · Last activity {{ getLastActivity(entry) | date:'mediumDate' }}
+          </span>
+          <div class="workspace-list">
+            <span *ngFor="let installation of entry.installations" class="workspace-pill" [class.current]="installation.isCurrentWorkspace">
+              {{ installation.workspaceName }}
+              <span *ngIf="installation.isCurrentWorkspace">(current)</span>
+            </span>
+          </div>
+        </div>
+        <div class="row-actions" *ngIf="hasPermission">
+          <nimble-button
+            *ngIf="entry.upgradeAvailable"
+            appearance="outline"
+            (click)="upgrade(entry); $event.stopPropagation()"
+            [disabled]="actionLoading === entry.packageName">
+            Upgrade
+          </nimble-button>
+          <nimble-button
+            appearance="ghost"
+            (click)="uninstall(entry); $event.stopPropagation()"
+            [disabled]="actionLoading === entry.packageName">
+            Uninstall All
+          </nimble-button>
+        </div>
       </div>
-    </div>
-    <div class="row-actions" *ngIf="hasPermission">
-      <nimble-button
-        *ngIf="entry.upgradeAvailable"
-        appearance="outline"
-        (click)="upgrade(entry); $event.stopPropagation()"
-        [disabled]="actionLoading === entry.packageName">
-        Upgrade
-      </nimble-button>
-      <nimble-button
-        appearance="ghost"
-        (click)="uninstall(entry); $event.stopPropagation()"
-        [disabled]="actionLoading === entry.packageName">
-        Uninstall All
-      </nimble-button>
     </div>
   </div>
 </div>

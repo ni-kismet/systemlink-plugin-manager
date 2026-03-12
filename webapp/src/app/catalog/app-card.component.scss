@@ -101,7 +101,17 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--sl-app-space-2);
   margin-top: var(--sl-app-space-1);
+}
+
+.card-type {
+  font: var(--sl-app-font-control-label);
+  text-transform: capitalize;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--ni-nimble-header-background-color);
+  color: var(--ni-nimble-body-font-color);
 }
 
 .card-category {

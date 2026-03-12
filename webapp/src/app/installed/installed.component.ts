@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { AppPackage, WorkspaceInstallation } from '../models/app-store.models';
+import { AppPackage, AppType, APP_TYPE_LABELS, WorkspaceInstallation } from '../models/app-store.models';
 import { AppStoreService } from '../services/app-store.service';
 import { compareSemver, isNewerVersion } from '../utils/semver';
 
@@ -11,6 +11,12 @@ interface InstalledEntry {
   upgradeAvailable: boolean;
 }
 
+interface TypeGroup {
+  type: AppType;
+  label: string;
+  entries: InstalledEntry[];
+}
+
 @Component({
   selector: 'app-installed',
   standalone: false,
@@ -19,6 +25,7 @@ interface InstalledEntry {
 })
 export class InstalledComponent implements OnInit {
   entries: InstalledEntry[] = [];
+  typeGroups: TypeGroup[] = [];
   feedId: string | null = null;
 
   hasPermission = true;
@@ -188,6 +195,19 @@ export class InstalledComponent implements OnInit {
           const rightName = right.catalogPkg?.displayName ?? right.packageName;
           return leftName.localeCompare(rightName) || left.packageName.localeCompare(right.packageName);
         });
+
+      // Build type groups
+      const typeOrder: AppType[] = ['webapp', 'notebook', 'dashboard'];
+      const grouped = new Map<AppType, InstalledEntry[]>();
+      for (const entry of this.entries) {
+        const entryType = (entry.installations[0]?.type ?? 'webapp') as AppType;
+        const list = grouped.get(entryType) ?? [];
+        list.push(entry);
+        grouped.set(entryType, list);
+      }
+      this.typeGroups = typeOrder
+        .filter(t => grouped.has(t))
+        .map(t => ({ type: t, label: APP_TYPE_LABELS[t], entries: grouped.get(t)! }));
     } catch (e: any) {
       this.error = e.message ?? 'Failed to load installed apps';
     } finally {
