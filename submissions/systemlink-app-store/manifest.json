@@ -1,6 +1,6 @@
 {
   "package": "systemlink-app-store",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "displayName": "SystemLink App Store",
   "description": "A curated marketplace webapp for discovering, installing, upgrading, and removing SystemLink web applications from a replicated package feed.",
   "section": "WebApps",

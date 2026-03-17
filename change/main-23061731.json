@@ -1,8 +1,0 @@
-{
-  "type": "patch",
-  "comment": "fix: treat empty upstream Packages index as up-to-date instead of error during feed refresh",
-  "packageName": "systemlink-app-store",
-  "email": "fred.visser@ni.com",
-  "dependentChangeType": "patch",
-  "date": "2026-03-17T20:21:09.216Z"
-}

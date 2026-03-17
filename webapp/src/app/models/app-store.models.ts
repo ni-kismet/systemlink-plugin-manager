@@ -119,7 +119,7 @@ export const FEED_NAME = 'SystemLink App Store';
 export const APP_STORE_PACKAGE_NAME = 'systemlink-app-store';
 
 /** Version of this App Store webapp build. */
-export const APP_STORE_VERSION = '0.1.1';
+export const APP_STORE_VERSION = '0.2.0';
 
 // ── WebApp property keys ──────────────────────────────────────────────────────
 

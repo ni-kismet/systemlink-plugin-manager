@@ -1,8 +1,0 @@
-{
-  "type": "minor",
-  "comment": "feat: add version to About section, move Add Feed form into a dialog",
-  "packageName": "systemlink-app-store",
-  "email": "fred.visser@ni.com",
-  "dependentChangeType": "patch",
-  "date": "2026-03-17T22:00:00.000Z"
-}
