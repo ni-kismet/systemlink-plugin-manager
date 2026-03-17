@@ -1,6 +1,10 @@
 name: Publish Release
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'submissions/**'
   workflow_dispatch:
     inputs:
       submission:
@@ -13,11 +17,50 @@ permissions:
   actions: write
 
 jobs:
-  publish:
-    name: Publish submitted package
+  detect:
+    name: Detect submissions to publish
     runs-on: ubuntu-latest
+    outputs:
+      submissions: ${{ steps.detect.outputs.submissions }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed submissions
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_SUBMISSION: ${{ inputs.submission }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.event.after }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            SUBMISSIONS=$(echo "$INPUT_SUBMISSION" | jq -R -s -c '[.]')
+          else
+            # Detect submission directories changed in this push.
+            # Exclude systemlink-app-store (published by publish-webapp pipeline).
+            SUBMISSIONS=$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" \
+              | grep '^submissions/' \
+              | cut -d'/' -f2 \
+              | sort -u \
+              | grep -v '^systemlink-app-store$' \
+              | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          fi
+          echo "submissions=$SUBMISSIONS" >> "$GITHUB_OUTPUT"
+          echo "Will publish: $SUBMISSIONS"
+
+  publish:
+    name: Publish ${{ matrix.submission }}
+    needs: detect
+    if: ${{ needs.detect.outputs.submissions != '[]' && needs.detect.outputs.submissions != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        submission: ${{ fromJson(needs.detect.outputs.submissions) }}
     env:
-      SUBMISSION_NAME: ${{ inputs.submission }}
+      SUBMISSION_NAME: ${{ matrix.submission }}
     steps:
       - uses: actions/checkout@v4
 
