@@ -1,0 +1,28 @@
+name: Check Version Change
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'webapp/**'
+
+jobs:
+  check:
+    name: Verify change file exists
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Check for change file
+        run: npx beachball check --verbose

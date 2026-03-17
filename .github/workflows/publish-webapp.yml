@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'webapp/**'
+      - '.change/**'
 
 permissions:
   contents: write
@@ -16,15 +17,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Read version from package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Bump version (beachball)
+        run: |
+          npx beachball bump --no-push
+          echo "Bumped. New version: $(jq -r '.version' webapp/package.json)"
+
+      - name: Read version
         id: version
         run: |
           VERSION=$(jq -r '.version' webapp/package.json)
-          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
-            echo "✗ Could not read version from webapp/package.json" >&2
-            exit 1
-          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=systemlink-app-store-v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "📦 Version: $VERSION"
@@ -44,16 +57,18 @@ jobs:
           sed -i "s/export const APP_STORE_VERSION = '.*';/export const APP_STORE_VERSION = '${VERSION}';/" \
             webapp/src/app/models/app-store.models.ts
 
-      - name: Commit version sync
+      - name: Commit version bump and sync
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add submissions/systemlink-app-store/manifest.json webapp/nipkg.config.json \
-                  webapp/src/app/models/app-store.models.ts
+          git add webapp/package.json webapp/CHANGELOG.md \
+                  submissions/systemlink-app-store/manifest.json webapp/nipkg.config.json \
+                  webapp/src/app/models/app-store.models.ts \
+                  .change/
           if git diff --cached --quiet; then
-            echo "Versions already in sync."
+            echo "Nothing to commit."
           else
-            git commit -m "chore: sync app store version to ${{ steps.version.outputs.version }} [skip ci]"
+            git commit -m "chore: bump app store to ${{ steps.version.outputs.version }} [skip ci]"
             git push
           fi
 
@@ -63,7 +78,7 @@ jobs:
           cache: npm
           cache-dependency-path: webapp/package-lock.json
 
-      - name: Install dependencies
+      - name: Install webapp dependencies
         run: npm ci
         working-directory: webapp
 
@@ -94,6 +109,7 @@ jobs:
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           VERSION="${{ steps.version.outputs.version }}"
+          CHANGELOG=$(npx beachball changelog --package systemlink-app-store 2>/dev/null || echo "Release of SystemLink App Store version ${VERSION}")
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
               "${{ steps.package.outputs.path }}" \
@@ -102,7 +118,7 @@ jobs:
             gh release create "$TAG" \
               "${{ steps.package.outputs.path }}" \
               --title "SystemLink App Store v${VERSION}" \
-              --notes "Release of SystemLink App Store version ${VERSION}" \
+              --notes "$CHANGELOG" \
               --latest
           fi
 

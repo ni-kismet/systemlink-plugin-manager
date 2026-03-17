@@ -1,0 +1,16 @@
+{
+  "name": "systemlink-app-store-root",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ni-kismet/systemlink-app-store.git"
+  },
+  "scripts": {
+    "change": "beachball change",
+    "check": "beachball check",
+    "bump": "beachball bump"
+  },
+  "devDependencies": {
+    "beachball": "^2.63.1"
+  }
+}
