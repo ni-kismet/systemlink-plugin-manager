@@ -26,7 +26,6 @@ import {
   getNifeedV1FeedsByFeedIdPackages,
   postNifeedV1ReplicateFeed,
   postNifeedV1FeedsByFeedIdCheckForUpdates,
-  postNifeedV1FeedsByFeedIdApplyUpdates,
   deleteNifeedV1FeedsByFeedId,
 } from '@ni/systemlink-clients-ts/feeds';
 import type { Package } from '@ni/systemlink-clients-ts/feeds';
@@ -178,7 +177,7 @@ export class AppStoreService {
   }
 
   /** Trigger a check-for-updates job and poll until it completes.
-   * Returns the list of pending-update resource IDs found (may be empty). */
+   * Returns the list of feed-update resource IDs found (may be empty). */
   async checkForUpdates(feedId: string): Promise<string[]> {
     const { data, error } = await postNifeedV1FeedsByFeedIdCheckForUpdates({
       client: this.feedsClient,
@@ -188,17 +187,15 @@ export class AppStoreService {
     const jobId = (data as any)?.jobId as string | undefined;
     if (!jobId) return [];
 
-    // Poll jobs list until the CHECK_FEED_UPDATE job completes.
+    // Poll the job directly until the CHECK_FEED_UPDATE job completes.
     for (let attempt = 0; attempt < 30; attempt++) {
       await new Promise(resolve => setTimeout(resolve, 2000));
-      const jobsRes = await fetch(
-        `${this.origin}/nifeed/v1/feeds/${encodeURIComponent(feedId)}/jobs`,
+      const jobRes = await fetch(
+        `${this.origin}/nifeed/v1/jobs/${encodeURIComponent(jobId)}`,
         { credentials: 'include' },
       );
-      if (!jobsRes.ok) continue;
-      const jobsData = await jobsRes.json().catch(() => ({}));
-      const job = (jobsData.jobs ?? []).find((j: any) => j.id === jobId);
-      if (!job) continue;
+      if (!jobRes.ok) continue;
+      const job = await jobRes.json().catch(() => ({} as any));
       if (job.status === 'SUCCESS') return job.result?.resourceIds ?? [];
       if (job.status === 'FAILED' || job.status === 'ERROR') {
         throw new Error(`check-for-updates job failed: ${JSON.stringify(job.error)}`);
@@ -208,41 +205,39 @@ export class AppStoreService {
   }
 
   /** Apply pending feed updates.
-   * Reads the replicated Packages index (same-origin) to discover each
-   * package's canonical upstream download URL, then calls apply-updates.
-   * @param resourceIds  IDs returned by checkForUpdates; skip if empty. */
+   * Fetches the update descriptors from the feed-updates API (which contain
+   * the upstream packageUri download URLs), then posts them to apply-updates.
+   * @param resourceIds  Feed-update IDs returned by checkForUpdates; skip if empty. */
   async applyUpdates(feedId: string, resourceIds: string[]): Promise<void> {
     if (resourceIds.length === 0) return;
 
-    // Fetch the replicated Packages index via same-origin (avoids CSP issues).
-    const packagesUrl = `${this.origin}/nifeed/v1/feeds/${encodeURIComponent(feedId)}/files/Packages`;
-    const indexRes = await fetch(packagesUrl, { credentials: 'include' });
-    if (!indexRes.ok) throw new Error(`Failed to fetch replicated Packages index: HTTP ${indexRes.status}`);
-    const indexText = await indexRes.text();
-    const stanzas = this.parsePackagesIndex(indexText);
-    const packageUris = stanzas
-      .map(s => s['Filename'])
-      .filter((uri): uri is string => !!uri && uri.startsWith('http'));
-    if (packageUris.length === 0) {
-      // The replicated index exists but has no external download URLs — the
-      // feed server has already fully replicated all packages locally.
-      return;
+    // Gather update descriptors from all feed-update resources.
+    const allDescriptors: Array<{ packageName: string; version: string; packageUri: string }> = [];
+    for (const updateId of resourceIds) {
+      const res = await fetch(
+        `${this.origin}/nifeed/v1/feed-updates/${encodeURIComponent(updateId)}`,
+        { credentials: 'include' },
+      );
+      if (!res.ok) continue;
+      const update = await res.json().catch(() => ({} as any));
+      const descriptors = update.updateDescriptors ?? [];
+      allDescriptors.push(...descriptors);
     }
 
-    // apply-updates: body is a flat object with applyUpdateDescriptors array.
-    const res = await fetch(
-      `${this.origin}/nifeed/v1/feeds/${encodeURIComponent(feedId)}/apply-updates`,
+    if (allDescriptors.length === 0) return;
+
+    // apply-updates with the upstream package URIs.
+    const applyRes = await fetch(
+      `${this.origin}/nifeed/v1/feeds/${encodeURIComponent(feedId)}/apply-updates?ignoreImportErrors=true`,
       {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          applyUpdateDescriptors: packageUris.map(uri => ({ packageUri: uri })),
-        }),
+        body: JSON.stringify({ updateDescriptors: allDescriptors }),
       },
     );
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+    if (!applyRes.ok) {
+      const err = await applyRes.json().catch(() => ({}));
       throw new Error(`Failed to apply updates: ${JSON.stringify(err)}`);
     }
   }
@@ -1027,28 +1022,6 @@ export class AppStoreService {
       },
     });
     if (error) throw new Error(`Failed to update webapp properties after upgrade: ${JSON.stringify(error)}`);
-  }
-
-  /** Parse an RFC 822-style Packages index into an array of field maps. */
-  private parsePackagesIndex(text: string): Record<string, string>[] {
-    const normalizedText = text.replace(/\r\n?/g, '\n');
-
-    return normalizedText.split(/\n[\t ]*\n+/).filter(s => s.trim()).map(stanza => {
-      const fields: Record<string, string> = {};
-      let key: string | null = null;
-      for (const line of stanza.split('\n')) {
-        if ((line.startsWith(' ') || line.startsWith('\t')) && key) {
-          fields[key] += '\n' + line.slice(1);
-        } else {
-          const colon = line.indexOf(':');
-          if (colon > 0) {
-            key = line.substring(0, colon).trim();
-            fields[key] = line.substring(colon + 1).trim();
-          }
-        }
-      }
-      return fields;
-    });
   }
 
   /** Map a Feed Service Package resource to an AppPackage.

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Fix feed refresh: use feed-updates API to get upstream package URIs instead of parsing the replicated Packages index",
+  "packageName": "systemlink-app-store",
+  "email": "appstore@ni.com",
+  "dependentChangeType": "patch"
+}
