@@ -70,22 +70,19 @@ jobs:
       - name: Package nipkg
         id: package
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          rm -rf webapp/dist/nipkg
-          npx -y @ni-kismet/sl-webapp-nipkg@0.3.0 build \
-            --build-dir webapp/dist/webapp/browser \
-            --name systemlink-app-store \
-            --version "$VERSION" \
-            --description "$(jq -r '.description' submissions/systemlink-app-store/manifest.json)" \
-            --maintainer "$(jq -r '.maintainer' submissions/systemlink-app-store/manifest.json)" \
-            --output-dir webapp/dist/nipkg
-          NIPKG=$(find webapp/dist/nipkg -maxdepth 1 -name '*.nipkg' | head -1)
+          rm -rf dist/nipkg
+          npx -y @ni-kismet/sl-webapp-nipkg@1.0.0 build \
+            --config nipkg.config.json \
+            --output-dir dist/nipkg
+          NIPKG=$(find dist/nipkg -maxdepth 1 -name '*.nipkg' | head -1)
           if [ -z "$NIPKG" ]; then
             echo "✗ Packaging did not produce a .nipkg file" >&2
             exit 1
           fi
-          echo "path=$NIPKG" >> "$GITHUB_OUTPUT"
+          # Output paths relative to repo root for subsequent steps
+          echo "path=webapp/$NIPKG" >> "$GITHUB_OUTPUT"
           echo "name=$(basename "$NIPKG")" >> "$GITHUB_OUTPUT"
+        working-directory: webapp
 
       - name: Create or update GitHub Release
         env:
