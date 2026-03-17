@@ -2,12 +2,12 @@ Architecture: all
 Description: A curated marketplace webapp for discovering, installing, upgrading, and removing SystemLink web applications from a replicated package feed.
 Filename: https://github.com/ni-kismet/systemlink-app-store/releases/download/systemlink-app-store-v0.1.1/systemlink-app-store_0.1.1_all.nipkg
 Homepage: https://github.com/ni-kismet/systemlink-app-store
-MD5sum: c303bac9e3e9ba619a200bb595f329ba
+MD5sum: 011a6d77c79346721b0936a75f3e7793
 Maintainer: NI App Store <appstore@ni.com>
 Package: systemlink-app-store
 Section: WebApps
-SHA256: d238a63c00933abafb361b71a383d0a67094f2c5643e7c9a8a549a34e586f7f7
-Size: 589718
+SHA256: 2f234e8ddb1e22a262843a4de1ca3989c75017c1976b1e9f5ce84a11995cb8af
+Size: 590030
 Version: 0.1.1
 XB-AppStoreAuthor: NI
 XB-AppStoreCategory: Administration
