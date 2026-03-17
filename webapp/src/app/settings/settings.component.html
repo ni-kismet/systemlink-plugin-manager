@@ -15,7 +15,10 @@
 
 <div *ngIf="!loading" class="settings-content">
   <section class="settings-section">
-    <h3>Configured Feeds</h3>
+    <div class="section-header">
+      <h3>Configured Feeds</h3>
+      <nimble-button appearance="outline" (click)="openAddFeedDialog()" [disabled]="!!refreshingFeedId">Add Feed</nimble-button>
+    </div>
     <p class="hint">
       The App Store reads packages from the feeds listed below.
       Apps can be installed from any configured feed.
@@ -45,37 +48,37 @@
   </section>
 
   <section class="settings-section">
-    <h3>Add Feed</h3>
-    <p class="hint">
-      Enter the URL of an App Store–compatible feed
-      (GitHub Pages URL or internal feed server).
-    </p>
-    <div class="form-stack">
-      <label class="field-label">Feed URL</label>
-      <nimble-text-field
-        [(ngModel)]="addFeedUrl"
-        placeholder="https://…">
-      </nimble-text-field>
-      <label class="field-label">Display Name</label>
-      <nimble-text-field
-        [(ngModel)]="addFeedName"
-        placeholder="My Internal Feed">
-      </nimble-text-field>
-      <nimble-button appearance="outline" (click)="addFeed()" [disabled]="addingFeed || !addFeedUrl.trim() || !addFeedName.trim()">
-        {{ addingFeed ? 'Adding…' : 'Replicate & Add Feed' }}
-      </nimble-button>
-    </div>
-  </section>
-
-  <section class="settings-section">
     <h3>About</h3>
     <p>SystemLink App Store — curated marketplace for SystemLink custom web applications.</p>
     <dl class="settings-list">
+      <dt>Version</dt>
+      <dd>{{ version }}</dd>
       <dt>Installed Apps</dt>
       <dd>{{ installedCount }}</dd>
     </dl>
   </section>
 </div>
+
+<nimble-dialog #addFeedDialog>
+  <span slot="title">Add Feed</span>
+  <span slot="subtitle">Enter the URL of an App Store–compatible feed (GitHub Pages URL or internal feed server).</span>
+  <div class="form-stack">
+    <label class="field-label">Feed URL</label>
+    <nimble-text-field
+      [(ngModel)]="addFeedUrl"
+      placeholder="https://…">
+    </nimble-text-field>
+    <label class="field-label">Display Name</label>
+    <nimble-text-field
+      [(ngModel)]="addFeedName"
+      placeholder="My Internal Feed">
+    </nimble-text-field>
+  </div>
+  <nimble-button appearance="ghost" slot="footer" (click)="closeAddFeedDialog()">Cancel</nimble-button>
+  <nimble-button appearance="outline" slot="footer" (click)="addFeed()" [disabled]="addingFeed || !addFeedUrl.trim() || !addFeedName.trim()">
+    {{ addingFeed ? 'Adding…' : 'Replicate & Add Feed' }}
+  </nimble-button>
+</nimble-dialog>
 
 <div *ngIf="!loading && !hasFeedConfig" class="empty-state">
   <p>No configuration found. Please complete the onboarding wizard.</p>

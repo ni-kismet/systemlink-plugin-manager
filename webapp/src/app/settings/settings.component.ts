@@ -1,6 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { FeedConfig, DEFAULT_FEED_URL } from '../models/app-store.models';
+import { APP_STORE_VERSION, FeedConfig, DEFAULT_FEED_URL } from '../models/app-store.models';
 import { AppStoreService } from '../services/app-store.service';
 
 @Component({
@@ -10,8 +10,11 @@ import { AppStoreService } from '../services/app-store.service';
   styleUrl: './settings.component.scss',
 })
 export class SettingsComponent implements OnInit {
+  @ViewChild('addFeedDialog') private addFeedDialogEl?: ElementRef;
+
   feeds: FeedConfig[] = [];
   installedCount = 0;
+  readonly version = APP_STORE_VERSION;
 
   loading = true;
   refreshingFeedId: string | null = null;
@@ -83,11 +86,23 @@ export class SettingsComponent implements OnInit {
       this.feeds = updated;
       this.addFeedUrl = '';
       this.addFeedName = '';
+      this.closeAddFeedDialog();
     } catch (e: any) {
       this.error = `Failed to add feed: ${e.message}`;
     } finally {
       this.addingFeed = false;
     }
+  }
+
+  openAddFeedDialog(): void {
+    this.addFeedUrl = '';
+    this.addFeedName = '';
+    this.error = '';
+    (this.addFeedDialogEl?.nativeElement as any)?.show();
+  }
+
+  closeAddFeedDialog(): void {
+    (this.addFeedDialogEl?.nativeElement as any)?.close();
   }
 
   async removeFeed(feed: FeedConfig): Promise<void> {

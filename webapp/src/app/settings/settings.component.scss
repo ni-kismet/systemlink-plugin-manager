@@ -22,6 +22,17 @@ h2 {
 
 // ── Section layout ───────────────────────────────────────────
 
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sl-app-space-3);
+
+  h3 {
+    margin: 0;
+  }
+}
+
 .settings-section {
   padding: var(--sl-app-space-6) 0;
 
