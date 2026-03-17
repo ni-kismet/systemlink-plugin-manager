@@ -221,8 +221,6 @@ def build_stanza(manifest: dict, submission_dir: Path, repo_url: str) -> str:
     lines = [
         f"Architecture: all",
         f"Description: {manifest['description']}",
-        f"DisplayName: {manifest['displayName']}",
-        f"DisplayVersion: {version}",
         f"Filename: {filename_url}",
         f"Homepage: {manifest.get('homepage', '')}",
         f"MD5sum: {md5}",
@@ -231,29 +229,33 @@ def build_stanza(manifest: dict, submission_dir: Path, repo_url: str) -> str:
         f"Section: {manifest['section']}",
         f"SHA256: {sha256}",
         f"Size: {size}",
-        f"UserVisible: yes",
         f"Version: {version}",
     ]
 
-    # App Store custom attributes
+    # Non-standard extended binary attributes — must use the XB- prefix per the
+    # Debian convention adopted by NI Package Manager.
     attrs = {
-        "AppStoreCategory": manifest.get("appStoreCategory", ""),
-        "AppStoreType": manifest.get("appStoreType", ""),
-        "AppStoreAuthor": manifest.get("appStoreAuthor", ""),
-        "AppStoreLicense": manifest.get("license", ""),
+        "XB-DisplayName": manifest["displayName"],
+        "XB-DisplayVersion": version,
+        "XB-Plugin": "file",
+        "XB-UserVisible": "yes",
+        "XB-AppStoreAuthor": manifest.get("appStoreAuthor", ""),
+        "XB-AppStoreCategory": manifest.get("appStoreCategory", ""),
+        "XB-AppStoreLicense": manifest.get("license", ""),
+        "XB-AppStoreType": manifest.get("appStoreType", ""),
     }
     if manifest.get("appStoreTags"):
-        attrs["AppStoreTags"] = manifest["appStoreTags"]
+        attrs["XB-AppStoreTags"] = manifest["appStoreTags"]
     if manifest.get("appStoreRepo"):
-        attrs["AppStoreRepo"] = manifest["appStoreRepo"]
+        attrs["XB-AppStoreRepo"] = manifest["appStoreRepo"]
     if manifest.get("appStoreMinServerVersion"):
-        attrs["AppStoreMinServerVersion"] = manifest["appStoreMinServerVersion"]
+        attrs["XB-AppStoreMinServerVersion"] = manifest["appStoreMinServerVersion"]
 
     # Base64-encode icon
     for icon_name in ["icon.svg", "icon.png"]:
         icon_path = submission_dir / icon_name
         if icon_path.is_file():
-            attrs["AppStoreIcon"] = base64_encode_file(icon_path)
+            attrs["XB-AppStoreIcon"] = base64_encode_file(icon_path)
             break
 
     # Base64-encode screenshots (max 3)
@@ -261,7 +263,7 @@ def build_stanza(manifest: dict, submission_dir: Path, repo_url: str) -> str:
         for ext in [".png", ".jpg", ".jpeg"]:
             screenshot_path = submission_dir / f"screenshot{i}{ext}"
             if screenshot_path.is_file():
-                attrs[f"AppStoreScreenshot{i}"] = base64_encode_file(screenshot_path)
+                attrs[f"XB-AppStoreScreenshot{i}"] = base64_encode_file(screenshot_path)
                 break
 
     for key, value in sorted(attrs.items()):
