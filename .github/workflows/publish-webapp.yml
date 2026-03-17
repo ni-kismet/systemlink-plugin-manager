@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - '.change/**'
+      - 'change/**'
   workflow_dispatch:
 
 permissions:
@@ -64,7 +64,7 @@ jobs:
           git add webapp/package.json webapp/CHANGELOG.md \
                   submissions/systemlink-app-store/manifest.json webapp/nipkg.config.json \
                   webapp/src/app/models/app-store.models.ts \
-                  .change/
+                  change/
           if git diff --cached --quiet; then
             echo "Nothing to commit."
           else
