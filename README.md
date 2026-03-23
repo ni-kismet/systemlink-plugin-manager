@@ -4,8 +4,6 @@
 
 A curated marketplace for [NI SystemLink](https://www.ni.com/en/shop/electronic-test-instrumentation/application-software-for-electronic-test-and-instrumentation-category/what-is-systemlink.html) custom web apps, notebooks, and extensibility packages. Users can browse, install, upgrade, and remove apps from both a webapp embedded inside SystemLink and the `slcli` command-line interface.
 
-![Doc site](https://ni-kismet.github.io/systemlink-app-store/)
-
 ## How it works
 
 The catalog is hosted as a standard NI Package Manager (nipkg) feed on GitHub:
