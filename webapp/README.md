@@ -1,5 +1,7 @@
 # Webapp
 
+> **⚠️ Preview & Unofficial** — This project is a community preview and **not a released or supported NI product**. Features may change or break without notice. Use at your own risk.
+
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.1.
 
 ## Development server
