@@ -590,20 +590,21 @@ export class AppStoreService {
     return installations;
   }
 
-  /** Query notebooks that have appstore metadata in their properties. */
+  /** Query notebooks that have appstore metadata in their properties.
+   * The notebook query API cannot filter on dot-keyed property names (it parses
+   * "properties.appstore.packageName" as nested-field access rather than a
+   * flat-key lookup). Fetch all notebooks and filter client-side instead. */
   private async listAppStoreNotebooks(): Promise<any[]> {
     const res = await fetch(`${this.origin}/ninotebook/v1/notebook/query`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filter: `!string.IsNullOrEmpty(properties.${APPSTORE_PROP_PACKAGE})`,
-        take: 1000,
-      }),
+      body: JSON.stringify({ take: 1000 }),
     });
     if (!res.ok) return [];
     const data = await res.json();
-    return data?.notebooks ?? [];
+    const notebooks: any[] = data?.notebooks ?? [];
+    return notebooks.filter(nb => nb.properties?.[APPSTORE_PROP_PACKAGE]);
   }
 
   /** Search for Grafana dashboards tagged with 'appstore'. */
