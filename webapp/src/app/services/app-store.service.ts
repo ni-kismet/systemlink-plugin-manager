@@ -498,11 +498,17 @@ export class AppStoreService {
     const workspaceNames = new Map(workspaces.map(w => [w.id, w.name]));
     const installations: WorkspaceInstallation[] = [];
 
-    // Webapps: identified by appstore.packageName property
+    // Webapps: identified by appstore.packageName property.
+    // Skip 'notebook' and 'dashboard' typed entries — those resource types are
+    // discovered through their own service queries below and would otherwise
+    // produce duplicate installations (the Notebook and Dashboard services
+    // mirror their resources in the WebApp Service).
     for (const webapp of webapps) {
       const props = ((webapp.properties ?? {}) as Record<string, string>);
       const packageName = props[APPSTORE_PROP_PACKAGE];
       if (!packageName) continue;
+      const resourceType = (props[APPSTORE_PROP_TYPE] ?? 'webapp').toLowerCase();
+      if (resourceType === 'notebook' || resourceType === 'dashboard') continue;
 
       const workspaceId = webapp.workspace ?? '';
       installations.push({
