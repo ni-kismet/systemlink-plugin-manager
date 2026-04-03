@@ -46,13 +46,10 @@ REQUIRED_FIELDS = [
     "section",
     "maintainer",
     "license",
-    "appStoreCategory",
-    "appStoreType",
-    "appStoreAuthor",
+    "xbPlugin",
 ]
 
-VALID_SECTIONS = {"WebApps", "Notebooks", "Add-Ons"}
-VALID_TYPES = {"webapp", "notebook", "routine", "bundle"}
+VALID_TYPES = {"webapp", "notebook", "dashboard", "routine", "bundle"}
 
 MAX_SCREENSHOTS = 3
 MAX_PACKAGE_SIZE_MB = 100
@@ -95,7 +92,7 @@ def hash_remote_file(url: str) -> tuple[int, str, str]:
 
     request = urllib.request.Request(
         url,
-        headers={"User-Agent": "systemlink-app-store-index-builder"},
+        headers={"User-Agent": "systemlink-plugin-manager-index-builder"},
     )
 
     with urllib.request.urlopen(request, timeout=60) as response:
@@ -159,15 +156,13 @@ def validate_manifest(manifest: dict, submission_dir: Path) -> list[str]:
         )
 
     section = manifest.get("section", "")
-    if section and section not in VALID_SECTIONS:
-        errors.append(
-            f"[{name}] Invalid section: {section!r} (allowed: {VALID_SECTIONS})"
-        )
+    if section and len(section.strip()) < 2:
+        errors.append(f"[{name}] Section must be at least 2 characters")
 
-    app_type = manifest.get("appStoreType", "")
-    if app_type and app_type not in VALID_TYPES:
+    plugin_type = manifest.get("xbPlugin", "")
+    if plugin_type and plugin_type not in VALID_TYPES:
         errors.append(
-            f"[{name}] Invalid appStoreType: {app_type!r} (allowed: {VALID_TYPES})"
+            f"[{name}] Invalid xbPlugin: {plugin_type!r} (allowed: {VALID_TYPES})"
         )
 
     return errors
@@ -237,25 +232,22 @@ def build_stanza(manifest: dict, submission_dir: Path, repo_url: str) -> str:
     attrs = {
         "XB-DisplayName": manifest["displayName"],
         "XB-DisplayVersion": version,
-        "XB-Plugin": "file",
+        "XB-Plugin": manifest.get("xbPlugin", manifest.get("appStoreType", "")),
         "XB-UserVisible": "yes",
-        "XB-AppStoreAuthor": manifest.get("appStoreAuthor", ""),
-        "XB-AppStoreCategory": manifest.get("appStoreCategory", ""),
-        "XB-AppStoreLicense": manifest.get("license", ""),
-        "XB-AppStoreType": manifest.get("appStoreType", ""),
+        "XB-SlPluginManagerLicense": manifest.get("license", ""),
     }
-    if manifest.get("appStoreTags"):
-        attrs["XB-AppStoreTags"] = manifest["appStoreTags"]
-    if manifest.get("appStoreRepo"):
-        attrs["XB-AppStoreRepo"] = manifest["appStoreRepo"]
-    if manifest.get("appStoreMinServerVersion"):
-        attrs["XB-AppStoreMinServerVersion"] = manifest["appStoreMinServerVersion"]
+    if manifest.get("slPluginManagerTags"):
+        attrs["XB-SlPluginManagerTags"] = manifest["slPluginManagerTags"]
+    if manifest.get("slPluginManagerMinServerVersion"):
+        attrs["XB-SlPluginManagerMinServerVersion"] = manifest[
+            "slPluginManagerMinServerVersion"
+        ]
 
     # Base64-encode icon
     for icon_name in ["icon.svg", "icon.png"]:
         icon_path = submission_dir / icon_name
         if icon_path.is_file():
-            attrs["XB-AppStoreIcon"] = base64_encode_file(icon_path)
+            attrs["XB-SlPluginManagerIcon"] = base64_encode_file(icon_path)
             break
 
     # Base64-encode screenshots (max 3)
@@ -263,7 +255,9 @@ def build_stanza(manifest: dict, submission_dir: Path, repo_url: str) -> str:
         for ext in [".png", ".jpg", ".jpeg"]:
             screenshot_path = submission_dir / f"screenshot{i}{ext}"
             if screenshot_path.is_file():
-                attrs[f"XB-AppStoreScreenshot{i}"] = base64_encode_file(screenshot_path)
+                attrs[f"XB-SlPluginManagerScreenshot{i}"] = base64_encode_file(
+                    screenshot_path
+                )
                 break
 
     for key, value in sorted(attrs.items()):
@@ -282,7 +276,7 @@ def get_repo_url(args_repo_url: str | None) -> str:
     if gh_repo:
         return f"https://github.com/{gh_repo}"
 
-    return "https://github.com/ni-kismet/systemlink-app-store"
+    return "https://github.com/ni-kismet/systemlink-plugin-manager"
 
 
 def main() -> int:

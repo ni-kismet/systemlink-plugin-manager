@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { AppPackage } from '../models/app-store.models';
+import { AppPackage } from '../models/plugin-manager.models';
 
 @Component({
   selector: 'app-card',

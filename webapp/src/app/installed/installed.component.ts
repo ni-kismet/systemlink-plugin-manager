@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { AppPackage, AppType, APP_TYPE_LABELS, WorkspaceInstallation } from '../models/app-store.models';
-import { AppStoreService } from '../services/app-store.service';
+import { AppPackage, AppType, APP_TYPE_LABELS, WorkspaceInstallation } from '../models/plugin-manager.models';
+import { PluginManagerService } from '../services/plugin-manager.service';
 import { compareSemver, isNewerVersion } from '../utils/semver';
 
 interface InstalledEntry {
@@ -35,7 +35,7 @@ export class InstalledComponent implements OnInit {
   upgradingAll = false;
 
   constructor(
-    private appStoreService: AppStoreService,
+    private appStoreService: PluginManagerService,
     public router: Router,
   ) {}
 

@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { AppPackage, AppType, APP_TYPES, APP_TYPE_LABELS, InstalledApp, FeedConfig } from '../models/app-store.models';
-import { AppStoreService } from '../services/app-store.service';
+import { AppPackage, AppType, APP_TYPES, APP_TYPE_LABELS, InstalledApp, FeedConfig } from '../models/plugin-manager.models';
+import { PluginManagerService } from '../services/plugin-manager.service';
 import { isNewerVersion } from '../utils/semver';
 
 @Component({
@@ -31,7 +31,7 @@ export class CatalogComponent implements OnInit {
   installingPackage: string | null = null;
 
   constructor(
-    private appStoreService: AppStoreService,
+    private appStoreService: PluginManagerService,
     private router: Router,
   ) {}
 

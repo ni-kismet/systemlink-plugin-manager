@@ -1,4 +1,4 @@
-name: Publish App Store Webapp
+name: Publish Plugin Manager Webapp
 
 on:
   push:
@@ -39,7 +39,7 @@ jobs:
         run: |
           VERSION=$(jq -r '.version' webapp/package.json)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=systemlink-app-store-v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=systemlink-plugin-manager-v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "📦 Version: $VERSION"
 
       - name: Sync version to manifest, nipkg config, and models
@@ -47,28 +47,28 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
 
           jq --arg v "$VERSION" '.version = $v' \
-            submissions/systemlink-app-store/manifest.json > tmp.json \
-            && mv tmp.json submissions/systemlink-app-store/manifest.json
+            submissions/systemlink-plugin-manager/manifest.json > tmp.json \
+            && mv tmp.json submissions/systemlink-plugin-manager/manifest.json
 
           jq --arg v "$VERSION" '.version = $v' \
             webapp/nipkg.config.json > tmp.json \
             && mv tmp.json webapp/nipkg.config.json
 
-          sed -i "s/export const APP_STORE_VERSION = '.*';/export const APP_STORE_VERSION = '${VERSION}';/" \
-            webapp/src/app/models/app-store.models.ts
+          sed -i "s/export const PLUGIN_MANAGER_VERSION = '.*';/export const PLUGIN_MANAGER_VERSION = '${VERSION}';/" \
+            webapp/src/app/models/plugin-manager.models.ts
 
       - name: Commit version bump and sync
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add webapp/package.json webapp/CHANGELOG.md \
-                  submissions/systemlink-app-store/manifest.json webapp/nipkg.config.json \
-                  webapp/src/app/models/app-store.models.ts \
+                  submissions/systemlink-plugin-manager/manifest.json webapp/nipkg.config.json \
+                  webapp/src/app/models/plugin-manager.models.ts \
                   change/
           if git diff --cached --quiet; then
             echo "Nothing to commit."
           else
-            git commit -m "chore: bump app store to ${{ steps.version.outputs.version }} [skip ci]"
+            git commit -m "chore: bump plugin manager to ${{ steps.version.outputs.version }} [skip ci]"
             git push
           fi
 
@@ -109,7 +109,7 @@ jobs:
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           VERSION="${{ steps.version.outputs.version }}"
-          CHANGELOG=$(npx beachball changelog --package systemlink-app-store 2>/dev/null || echo "Release of SystemLink App Store version ${VERSION}")
+          CHANGELOG=$(npx beachball changelog --package systemlink-plugin-manager 2>/dev/null || echo "Release of Plugin Manager for SystemLink version ${VERSION}")
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
               "${{ steps.package.outputs.path }}" \
@@ -117,7 +117,7 @@ jobs:
           else
             gh release create "$TAG" \
               "${{ steps.package.outputs.path }}" \
-              --title "SystemLink App Store v${VERSION}" \
+              --title "Plugin Manager for SystemLink v${VERSION}" \
               --notes "$CHANGELOG" \
               --latest
           fi

@@ -119,7 +119,7 @@ def download_file(url: str, dest: Path) -> None:
     print(f"Downloading {url} → {dest}")
     request = urllib.request.Request(
         url,
-        headers={"User-Agent": "systemlink-app-store-submit"},
+        headers={"User-Agent": "systemlink-plugin-manager-submit"},
     )
     with urllib.request.urlopen(request, timeout=120) as response:
         with open(dest, "wb") as f:
@@ -218,15 +218,15 @@ def create_submission_branch(
             else ""
         )
         body = (
-            f"## New submission: {display_name} v{version}\n\n"
+            f"## New plugin submission: {display_name} v{version}\n\n"
             f"**Package:** `{pkg}`\n"
             f"**Version:** `{version}`\n"
-            f"**Type:** `{manifest.get('appStoreType', 'unknown')}`\n"
-            f"**Author:** {manifest.get('appStoreAuthor', 'unknown')}\n"
+            f"**Plugin Type:** `{manifest.get('xbPlugin', manifest.get('appStoreType', 'unknown'))}`\n"
+            f"**Maintainer:** {manifest.get('maintainer', 'unknown')}\n"
             f"**License:** {manifest.get('license', 'unknown')}\n"
             f"**Source:**{source_info}\n\n"
             f"---\n\n"
-            f"*This PR was automatically created by the cross-repo submission workflow.*\n"
+            f"*This PR was automatically created by the cross-repo Plugin Manager submission workflow.*\n"
             f"*Please review the submission and run functional tests before merging.*"
         )
 
@@ -267,7 +267,7 @@ def create_submission_branch(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Create an App Store submission from a .nipkg and manifest"
+        description="Create a Plugin Manager submission from a .nipkg and manifest"
     )
 
     # Manifest source — file or inline JSON

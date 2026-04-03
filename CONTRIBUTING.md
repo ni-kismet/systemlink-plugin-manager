@@ -1,10 +1,10 @@
-# Contributing to the SystemLink App Store
+# Contributing to Plugin Manager for SystemLink
 
-Thank you for your interest in contributing to the SystemLink App Store! This guide explains how to submit an app for inclusion in the curated catalog.
+Thank you for your interest in contributing to Plugin Manager for SystemLink. This guide explains how to submit a plugin for inclusion in the curated catalog.
 
 ## Overview
 
-The App Store uses a **curated, PR-based submission process** inspired by Homebrew. You submit a Pull Request containing your app's metadata and `.nipkg` package, and maintainers review it before it becomes available in the catalog.
+The Plugin Manager uses a **curated, PR-based submission process** inspired by Homebrew. You submit a Pull Request containing your plugin metadata and `.nipkg` package, and maintainers review it before it becomes available in the catalog.
 
 ## Prerequisites
 
@@ -38,16 +38,13 @@ Your `manifest.json` must conform to [`app-manifest.schema.json`](app-manifest.s
   "version": "1.0.0",
   "displayName": "My Awesome Dashboard",
   "description": "A comprehensive dashboard for monitoring asset health and calibration status across your SystemLink fleet.",
-  "section": "WebApps",
+  "section": "Dashboard",
   "maintainer": "Your Name <you@example.com>",
   "homepage": "https://github.com/yourorg/my-awesome-dashboard",
   "license": "MIT",
-  "appStoreCategory": "Dashboard",
-  "appStoreType": "webapp",
-  "appStoreAuthor": "Your Name",
-  "appStoreTags": "assets,calibration,dashboard,monitoring",
-  "appStoreRepo": "https://github.com/yourorg/my-awesome-dashboard",
-  "appStoreMinServerVersion": "2024 Q4",
+  "xbPlugin": "webapp",
+  "slPluginManagerTags": "assets,calibration,dashboard,monitoring",
+  "slPluginManagerMinServerVersion": "2024 Q4",
   "nipkgFile": "my-awesome-dashboard_1.0.0_windows_all.nipkg"
 }
 ```
@@ -88,14 +85,14 @@ After merge, CI will:
 3. Regenerate the `Packages` index
 4. Deploy to GitHub Pages
 
-Your app will be available in the App Store the next time users refresh their feed.
+Your plugin will be available in the Plugin Manager the next time users refresh their feed.
 
 ## Requirements for submitted apps
 
 | Requirement       | Details                                                                                |
 | ----------------- | -------------------------------------------------------------------------------------- |
 | Metadata          | All required `manifest.json` fields must be present (see schema)                       |
-| Custom attributes | Must include `appStoreCategory`, `appStoreType`, `appStoreLicense`, `appStoreAuthor`   |
+| Plugin metadata   | Must include `section`, `xbPlugin`, `license`, and `maintainer`                         |
 | Content           | `.nipkg` must contain a valid webapp (`index.html` at root) or notebook (`.ipynb`)     |
 | CSP               | No external network calls outside SystemLink's own APIs                                |
 | Icon              | SVG or PNG, max 128×128 px (required)                                                  |
@@ -112,7 +109,7 @@ Your app will be available in the App Store the next time users refresh their fe
 If you use the SystemLink CLI, you can package your webapp with:
 
 ```bash
-slcli appstore publish dist/browser/ \
+slcli plugin-manager publish dist/browser/ \
   --name "my-awesome-dashboard" \
   --version "1.0.0" \
   --category "Dashboard" \
@@ -140,7 +137,7 @@ If your webapps live in a separate repository (e.g., `systemlink-enterprise-exam
 ### How it works
 
 ```
-Source repo (your webapps)              systemlink-app-store
+Source repo (your webapps)              systemlink-plugin-manager
 ─────────────────────────               ────────────────────
 1. Build webapp (ng build)
 2. Package as .nipkg
@@ -154,18 +151,18 @@ Source repo (your webapps)              systemlink-app-store
 
 ### Setup
 
-1. **Create a PAT** (classic) with `repo` scope that has access to the `systemlink-app-store` repository. Store it as a secret named `APP_STORE_DISPATCH_TOKEN` in your source repository.
+1. **Create a PAT** (classic) with `repo` scope that has access to the `systemlink-plugin-manager` repository. Store it as a secret named `PLUGIN_MANAGER_DISPATCH_TOKEN` in your source repository.
 
 2. **Add a `manifest.json`** next to each webapp project in your source repo. It must conform to [`app-manifest.schema.json`](app-manifest.schema.json).
 
-3. **Add the publish workflow** to your source repository. See [`.github/examples/publish-to-app-store.yml`](.github/examples/publish-to-app-store.yml) for a complete, ready-to-use example with a 5-app matrix build.
+3. **Add the publish workflow** to your source repository. See [`.github/examples/publish-to-plugin-manager.yml`](.github/examples/publish-to-plugin-manager.yml) for a complete, ready-to-use example with a 5-app matrix build.
 
 ### Manual cross-repo submission (local)
 
 You can also use the `submit_package.py` script directly:
 
 ```bash
-# From a clone of systemlink-app-store
+# From a clone of systemlink-plugin-manager
 python scripts/submit_package.py \
     --manifest path/to/manifest.json \
     --nipkg path/to/my-app_1.0.0_windows_all.nipkg
@@ -197,7 +194,7 @@ python scripts/submit_package.py \
 
 ## Delisting / Deprecation
 
-To request removal of your app, open an issue or submit a PR removing your submission directory. Deprecation is handled by adding `AppStoreDeprecated: yes` to the metadata — the app will show a warning badge but remain visible during a grace period.
+To request removal of your plugin, open an issue or submit a PR removing your submission directory. Deprecation is handled by adding `slPluginManagerDeprecated: yes` to the metadata — the plugin will show a warning badge but remain visible during a grace period.
 
 ## Questions?
 

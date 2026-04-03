@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { APP_STORE_VERSION, FeedConfig, DEFAULT_FEED_URL } from '../models/app-store.models';
-import { AppStoreService } from '../services/app-store.service';
+import { PLUGIN_MANAGER_VERSION, FeedConfig, DEFAULT_FEED_URL } from '../models/plugin-manager.models';
+import { PluginManagerService } from '../services/plugin-manager.service';
 
 @Component({
   selector: 'app-settings',
@@ -15,7 +15,7 @@ export class SettingsComponent implements OnInit {
 
   feeds: FeedConfig[] = [];
   installedCount = 0;
-  readonly version = APP_STORE_VERSION;
+  readonly version = PLUGIN_MANAGER_VERSION;
 
   loading = true;
   refreshingFeedId: string | null = null;
@@ -31,7 +31,7 @@ export class SettingsComponent implements OnInit {
   removingFeed = false;
 
   constructor(
-    private appStoreService: AppStoreService,
+    private appStoreService: PluginManagerService,
     public router: Router,
   ) {}
 

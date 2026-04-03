@@ -1,5 +1,5 @@
 {
-  "name": "systemlink-app-store",
+  "name": "systemlink-plugin-manager",
   "version": "0.2.1",
   "scripts": {
     "ng": "ng",

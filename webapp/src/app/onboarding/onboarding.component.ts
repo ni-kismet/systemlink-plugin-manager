@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
-import { FeedConfig, DEFAULT_FEED_URL, FEED_NAME } from '../models/app-store.models';
-import { AppStoreService } from '../services/app-store.service';
+import { FeedConfig, DEFAULT_FEED_URL, FEED_NAME } from '../models/plugin-manager.models';
+import { PluginManagerService } from '../services/plugin-manager.service';
 
 @Component({
   selector: 'app-onboarding',
@@ -27,7 +27,7 @@ export class OnboardingComponent {
   addingOptional = false;
 
   constructor(
-    private appStoreService: AppStoreService,
+    private appStoreService: PluginManagerService,
     private router: Router,
   ) {}
 
@@ -101,7 +101,7 @@ export class OnboardingComponent {
     const existing = await this.appStoreService.loadFeedConfigs();
     const updated = [...existing.filter(f => f.feedId !== this.feedId), mainFeedConfig];
     await this.appStoreService.saveFeedConfigs(updated);
-    // Tag the App Store's own webapp so it appears as installed in the catalog.
+    // Tag the Plugin Manager's own webapp so it appears as installed in the catalog.
     await this.appStoreService.tagOwnWebapp(this.feedId, this.feedUrl.trim());
     this.step = 2;
   }

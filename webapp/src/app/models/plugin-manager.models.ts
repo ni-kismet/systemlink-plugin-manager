@@ -1,4 +1,4 @@
-/** Represents an app package from the feed catalog. */
+/** Represents a plugin package from the catalog feed. */
 export interface AppPackage {
   /** Unique package identifier (e.g., 'mycompany-asset-dashboard'). */
   packageName: string;
@@ -8,7 +8,7 @@ export interface AppPackage {
   displayName: string;
   /** Multi-line description. */
   description: string;
-  /** Top-level section: WebApps, Notebooks, Add-Ons. */
+  /** Fine-grained category from the control-file Section field. */
   section: string;
   /** Maintainer name and email. */
   maintainer: string;
@@ -20,9 +20,9 @@ export interface AppPackage {
   screenshots: string[];
   /** Fine-grained category (Dashboard, Data Analysis, etc.). */
   category: string;
-  /** Resource type: webapp, notebook, routine, bundle. */
+  /** Plugin type: webapp, notebook, dashboard, routine, bundle. */
   type: string;
-  /** Display author name. */
+  /** Display author name derived from the maintainer field. */
   author: string;
   /** SPDX license identifier. */
   license: string;
@@ -45,8 +45,8 @@ export interface AppPackage {
 }
 
 /**
- * A configured App Store feed source.
- * Stored as a JSON array in the App Store webapp's own `appstore.feeds` property.
+ * A configured Plugin Manager feed source.
+ * Stored as a JSON array in the Plugin Manager webapp's own property bag.
  */
 export interface FeedConfig {
   /** Human-readable feed name. */
@@ -81,9 +81,9 @@ export interface WorkspaceInfo {
   name: string;
 }
 
-/** An installed app annotated with its package name and owning workspace. */
+/** An installed plugin annotated with its package name and owning workspace. */
 export interface WorkspaceInstallation extends InstalledApp {
-  /** App Store package name (from appstore.packageName property). */
+  /** Plugin package name from the Plugin Manager metadata. */
   packageName: string;
   /** Display name of the installed resource (e.g. the webapp name). */
   resourceName: string;
@@ -94,7 +94,7 @@ export interface WorkspaceInstallation extends InstalledApp {
 
 /** Combined view: catalog package + install status across workspaces. */
 export interface AppWithStatus extends AppPackage {
-  /** Workspaces where this app is installed, with their manifest data. */
+  /** Workspaces where this plugin is installed, with their manifest data. */
   installations: Map<string, InstalledApp>;
   /** Whether an upgrade is available (catalog version > installed version). */
   upgradeAvailable: boolean;
@@ -109,29 +109,29 @@ export const APP_TYPE_LABELS: Record<AppType, string> = {
   dashboard: 'Dashboards',
 };
 
-/** Default feed URL for the official App Store feed source. */
-export const DEFAULT_FEED_URL = 'https://ni-kismet.github.io/systemlink-app-store/';
+/** Default feed URL for the official Plugin Manager feed source. */
+export const DEFAULT_FEED_URL = 'https://ni-kismet.github.io/systemlink-plugin-manager/';
 
 /** Well-known feed name used for discovery. */
-export const FEED_NAME = 'SystemLink App Store';
+export const FEED_NAME = 'Plugin Manager for SystemLink';
 
-/** Package name of the App Store itself in the feed. */
-export const APP_STORE_PACKAGE_NAME = 'systemlink-app-store';
+/** Package name of the Plugin Manager itself in the feed. */
+export const PLUGIN_MANAGER_PACKAGE_NAME = 'systemlink-plugin-manager';
 
-/** Version of this App Store webapp build. */
-export const APP_STORE_VERSION = '0.2.1';
+/** Version of this Plugin Manager webapp build. */
+export const PLUGIN_MANAGER_VERSION = '0.2.1';
 
 // ── WebApp property keys ──────────────────────────────────────────────────────
 
-/** Property key on the App Store webapp itself: JSON-serialised FeedConfig[]. */
-export const APPSTORE_PROP_FEEDS = 'appstore.feeds';
+/** Property key on the Plugin Manager webapp itself: JSON-serialised FeedConfig[]. */
+export const SL_PLUGIN_MANAGER_PROP_FEEDS = 'slPluginManager.feeds';
 
-/** Property keys set on every webapp installed through the App Store. */
-export const APPSTORE_PROP_PACKAGE = 'appstore.packageName';
-export const APPSTORE_PROP_VERSION = 'appstore.version';
-export const APPSTORE_PROP_TYPE = 'appstore.type';
-export const APPSTORE_PROP_FEED_ID = 'appstore.feedId';
-export const APPSTORE_PROP_FEED_URL = 'appstore.feedUrl';
-export const APPSTORE_PROP_INSTALLED_AT = 'appstore.installedAt';
-export const APPSTORE_PROP_UPDATED_AT = 'appstore.updatedAt';
+/** Property keys set on every resource installed through the Plugin Manager. */
+export const SL_PLUGIN_MANAGER_PROP_PACKAGE = 'slPluginManager.packageName';
+export const SL_PLUGIN_MANAGER_PROP_VERSION = 'slPluginManager.version';
+export const SL_PLUGIN_MANAGER_PROP_TYPE = 'slPluginManager.type';
+export const SL_PLUGIN_MANAGER_PROP_FEED_ID = 'slPluginManager.feedId';
+export const SL_PLUGIN_MANAGER_PROP_FEED_URL = 'slPluginManager.feedUrl';
+export const SL_PLUGIN_MANAGER_PROP_INSTALLED_AT = 'slPluginManager.installedAt';
+export const SL_PLUGIN_MANAGER_PROP_UPDATED_AT = 'slPluginManager.updatedAt';
 

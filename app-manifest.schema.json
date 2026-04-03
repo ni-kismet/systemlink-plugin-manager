@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/ni/systemlink-app-store/app-manifest.schema.json",
-  "title": "SystemLink App Store Submission Manifest",
+  "$id": "https://github.com/ni-kismet/systemlink-plugin-manager/app-manifest.schema.json",
+  "title": "Plugin Manager for SystemLink Submission Manifest",
   "description": "Schema for manifest.json files in submissions/ directories. Used by CI to validate app submissions.",
   "type": "object",
   "required": [
@@ -12,9 +12,7 @@
     "section",
     "maintainer",
     "license",
-    "appStoreCategory",
-    "appStoreType",
-    "appStoreAuthor"
+    "xbPlugin"
   ],
   "properties": {
     "package": {
@@ -43,49 +41,34 @@
     },
     "section": {
       "type": "string",
-      "enum": ["WebApps", "Notebooks", "Add-Ons"],
-      "description": "Top-level category for filtering."
+      "minLength": 2,
+      "description": "Fine-grained category shown in the Plugin Manager catalog, such as Dashboard, Data Analysis, Integration, or Monitoring."
     },
     "maintainer": {
       "type": "string",
       "minLength": 3,
-      "description": "Author name and email, e.g. 'Acme Corp <apps@acme.com>'."
+      "description": "Maintainer name and email, e.g. 'Acme Corp <apps@acme.com>'. This is also used for the author display in the Plugin Manager UI."
     },
     "homepage": {
       "type": "string",
       "format": "uri",
-      "description": "Link to project homepage or documentation."
+      "description": "Link to project homepage, documentation, or source repository."
     },
     "license": {
       "type": "string",
       "minLength": 2,
       "description": "SPDX license identifier (e.g. MIT, Apache-2.0) or 'Proprietary'."
     },
-    "appStoreCategory": {
+    "xbPlugin": {
       "type": "string",
-      "minLength": 2,
-      "description": "Fine-grained category: Dashboard, Data Analysis, Integration, Monitoring, etc."
+      "enum": ["webapp", "notebook", "dashboard", "routine", "bundle"],
+      "description": "Top-level plugin type used for Plugin Manager routing and filtering. This value is written to the XB-Plugin feed attribute."
     },
-    "appStoreType": {
-      "type": "string",
-      "enum": ["webapp", "notebook", "routine", "bundle"],
-      "description": "Resource type installed."
-    },
-    "appStoreAuthor": {
-      "type": "string",
-      "minLength": 2,
-      "description": "Display author name shown in the store UI."
-    },
-    "appStoreTags": {
+    "slPluginManagerTags": {
       "type": "string",
       "description": "Comma-separated search tags."
     },
-    "appStoreRepo": {
-      "type": "string",
-      "format": "uri",
-      "description": "Source code repository URL."
-    },
-    "appStoreMinServerVersion": {
+    "slPluginManagerMinServerVersion": {
       "type": "string",
       "description": "Minimum SystemLink server version, e.g. '2024 Q4'."
     },

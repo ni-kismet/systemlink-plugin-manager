@@ -39,12 +39,12 @@ jobs:
             SUBMISSIONS=$(echo "$INPUT_SUBMISSION" | jq -R -s -c '[.]')
           else
             # Detect submission directories changed in this push.
-            # Exclude systemlink-app-store (published by publish-webapp pipeline).
+            # Exclude systemlink-plugin-manager (published by publish-webapp pipeline).
             SUBMISSIONS=$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" \
               | grep '^submissions/' \
               | cut -d'/' -f2 \
               | sort -u \
-              | grep -v '^systemlink-app-store$' \
+              | grep -v '^systemlink-plugin-manager$' \
               | jq -R -s -c 'split("\n") | map(select(length > 0))')
           fi
           echo "submissions=$SUBMISSIONS" >> "$GITHUB_OUTPUT"
@@ -103,7 +103,7 @@ jobs:
             echo "build_webapp=false" >> "$GITHUB_OUTPUT"
             echo "path=$FOUND" >> "$GITHUB_OUTPUT"
             echo "name=$(basename "$FOUND")" >> "$GITHUB_OUTPUT"
-          elif [ "$PACKAGE_NAME" = "systemlink-app-store" ]; then
+          elif [ "$PACKAGE_NAME" = "systemlink-plugin-manager" ]; then
             echo "build_webapp=true" >> "$GITHUB_OUTPUT"
           else
             echo "✗ No .nipkg artifact found in $DIR. Add one to the submission or set nipkgFile." >&2
@@ -127,7 +127,7 @@ jobs:
         run: npm run build
         working-directory: webapp
 
-      - name: Package SystemLink App Store webapp
+      - name: Package Plugin Manager for SystemLink webapp
         if: steps.artifact.outputs.build_webapp == 'true'
         id: build_nipkg
         run: |

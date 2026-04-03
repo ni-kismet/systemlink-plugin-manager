@@ -19,8 +19,8 @@
       <h3>Configured Feeds</h3>
     </div>
     <p class="hint">
-      The App Store reads packages from the feeds listed below.
-      Apps can be installed from any configured feed.
+      The Plugin Manager reads packages from the feeds listed below.
+      Plugins can be installed from any configured feed.
     </p>
 
     <div *ngIf="feeds.length === 0" class="empty-state">
@@ -49,7 +49,7 @@
 
   <section class="settings-section">
     <h3>About</h3>
-    <p>SystemLink App Store — curated marketplace for SystemLink custom web applications.</p>
+    <p>Plugin Manager for SystemLink — curated package discovery and installation for SystemLink extensions.</p>
     <dl class="settings-list">
       <dt>Version</dt>
       <dd>{{ version }}</dd>
@@ -61,7 +61,7 @@
 
 <nimble-dialog #addFeedDialog>
   <span slot="title">Add Feed</span>
-  <span slot="subtitle">Enter the URL of an App Store-compatible feed.</span>
+  <span slot="subtitle">Enter the URL of a Plugin Manager-compatible feed.</span>
   <div class="form-stack">
     <label class="field-label">Feed URL</label>
     <nimble-text-field

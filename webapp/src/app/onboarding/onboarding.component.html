@@ -1,6 +1,6 @@
 <div class="onboarding-container">
   <div class="onboarding-card">
-    <h2>Welcome to the SystemLink App Store</h2>
+    <h2>Welcome to Plugin Manager for SystemLink</h2>
 
     <nimble-banner *ngIf="error" severity="error" [open]="true">
       {{ error }}
@@ -24,11 +24,11 @@
     <section class="step" [class.active]="step === 1" [class.done]="step > 1">
       <div class="step-header">
         <span class="step-number" [class.completed]="step > 1">1</span>
-        <span class="step-title">Connect to the App Store feed</span>
+        <span class="step-title">Connect to the Plugin Manager feed</span>
       </div>
       <div *ngIf="step === 1" class="step-body">
         <p>
-          The App Store needs to replicate the package feed from the
+          The Plugin Manager needs to replicate the package feed from the
           source URL into your local SystemLink instance.
         </p>
         <label class="field-label">Feed URL</label>
@@ -50,7 +50,7 @@
       </div>
       <div *ngIf="step === 2" class="step-body">
         <p>
-          The main App Store feed has been registered. You can optionally
+          The main Plugin Manager feed has been registered. You can optionally
           add an additional feed now — for example, an internal feed hosted
           within your organisation.
         </p>
@@ -84,7 +84,7 @@
       </div>
       <div *ngIf="step === 3" class="step-body">
         <p>
-          Your App Store is ready. Browse apps and install them
+          Your Plugin Manager is ready. Browse plugins and install them
           to your SystemLink instance.
         </p>
         <nimble-button appearance="outline" (click)="goToCatalog()">

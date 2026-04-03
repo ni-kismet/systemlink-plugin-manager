@@ -1,9 +1,9 @@
 {
-  "name": "systemlink-app-store-root",
+  "name": "systemlink-plugin-manager-root",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/ni-kismet/systemlink-app-store.git"
+    "url": "https://github.com/ni-kismet/systemlink-plugin-manager.git"
   },
   "scripts": {
     "change": "beachball change",

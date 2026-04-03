@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { AppPackage, FeedConfig, InstalledApp, WorkspaceInfo, WorkspaceInstallation } from '../models/app-store.models';
-import { AppStoreService } from '../services/app-store.service';
+import { AppPackage, FeedConfig, InstalledApp, WorkspaceInfo, WorkspaceInstallation } from '../models/plugin-manager.models';
+import { PluginManagerService } from '../services/plugin-manager.service';
 import { formatBytes } from '../utils/semver';
 import { isNewerVersion } from '../utils/semver';
 
@@ -44,7 +44,7 @@ export class AppDetailComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private appStoreService: AppStoreService,
+    private appStoreService: PluginManagerService,
   ) {}
 
   async ngOnInit(): Promise<void> {

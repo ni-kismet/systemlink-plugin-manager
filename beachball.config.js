@@ -17,7 +17,7 @@ module.exports = {
   changelog: {
     groups: [
       {
-        masterPackageName: 'systemlink-app-store',
+        masterPackageName: 'systemlink-plugin-manager',
         changelogPath: 'webapp',
         include: ['webapp'],
       },

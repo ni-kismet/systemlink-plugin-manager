@@ -1,8 +1,8 @@
-# SystemLink App Store
+# Plugin Manager for SystemLink
 
 > **⚠️ Preview & Unofficial** — This is a community preview project and **not a released or supported NI product**. It is provided as-is, without warranty of any kind. Features may change or be removed without notice. **Use at your own risk.**
 
-A curated marketplace for [NI SystemLink](https://www.ni.com/en/shop/electronic-test-instrumentation/application-software-for-electronic-test-and-instrumentation-category/what-is-systemlink.html) custom web apps, notebooks, and extensibility packages. Users can browse, install, upgrade, and remove apps from both a webapp embedded inside SystemLink and the `slcli` command-line interface.
+A curated plugin manager for [NI SystemLink](https://www.ni.com/en/shop/electronic-test-instrumentation/application-software-for-electronic-test-and-instrumentation-category/what-is-systemlink.html) custom web apps, notebooks, dashboards, and other extensibility packages. Users can browse, install, upgrade, and remove plugins from both a webapp embedded inside SystemLink and the `slcli` command-line interface.
 
 ## How it works
 
@@ -28,7 +28,7 @@ Publishing is **curated**: all submissions go through a PR-based review process 
 
 ## Getting started
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) to submit an app, or visit the [doc site](https://ni-kismet.github.io/systemlink-app-store/) for an overview.
+See [CONTRIBUTING.md](CONTRIBUTING.md) to submit a plugin, or visit the [doc site](https://ni-kismet.github.io/systemlink-plugin-manager/) for an overview.
 
 To develop the webapp locally:
 

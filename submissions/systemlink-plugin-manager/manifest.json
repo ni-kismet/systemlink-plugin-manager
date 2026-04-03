@@ -9,8 +9,5 @@
   "license": "MIT",
   "xbPlugin": "webapp",
   "slPluginManagerTags": "plugin-manager,catalog,packages,systemlink,webapp",
-  "slPluginManagerMinServerVersion": "2024 Q4",
-  "iconFile": "../submissions/systemlink-plugin-manager/icon.svg",
-  "buildDir": "dist/webapp/browser",
-  "buildCommand": "npm run build"
+  "slPluginManagerMinServerVersion": "2024 Q4"
 }

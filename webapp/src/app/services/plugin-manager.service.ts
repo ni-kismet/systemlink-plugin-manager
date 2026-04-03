@@ -7,17 +7,17 @@ import {
   WorkspaceInfo,
   WorkspaceInstallation,
   FEED_NAME,
-  APP_STORE_PACKAGE_NAME,
-  APP_STORE_VERSION,
-  APPSTORE_PROP_FEEDS,
-  APPSTORE_PROP_PACKAGE,
-  APPSTORE_PROP_VERSION,
-  APPSTORE_PROP_TYPE,
-  APPSTORE_PROP_FEED_ID,
-  APPSTORE_PROP_FEED_URL,
-  APPSTORE_PROP_INSTALLED_AT,
-  APPSTORE_PROP_UPDATED_AT,
-} from '../models/app-store.models';
+  PLUGIN_MANAGER_PACKAGE_NAME,
+  PLUGIN_MANAGER_VERSION,
+  SL_PLUGIN_MANAGER_PROP_FEEDS,
+  SL_PLUGIN_MANAGER_PROP_PACKAGE,
+  SL_PLUGIN_MANAGER_PROP_VERSION,
+  SL_PLUGIN_MANAGER_PROP_TYPE,
+  SL_PLUGIN_MANAGER_PROP_FEED_ID,
+  SL_PLUGIN_MANAGER_PROP_FEED_URL,
+  SL_PLUGIN_MANAGER_PROP_INSTALLED_AT,
+  SL_PLUGIN_MANAGER_PROP_UPDATED_AT,
+} from '../models/plugin-manager.models';
 
 // ── SDK imports ───────────────────────────────────────────────
 import { createClient as createFeedsClient, createConfig as createFeedsConfig } from '@ni/systemlink-clients-ts/feeds/client';
@@ -46,8 +46,27 @@ import { createClient as createNotebookClient, createConfig as createNotebookCon
 import { compareSemver } from '../utils/semver';
 import { extractFirstMatch } from '../utils/nipkg-extract';
 
+const LEGACY_APPSTORE_PROP_FEEDS = 'appstore.feeds';
+const LEGACY_APPSTORE_PROP_PACKAGE = 'appstore.packageName';
+const LEGACY_APPSTORE_PROP_VERSION = 'appstore.version';
+const LEGACY_APPSTORE_PROP_TYPE = 'appstore.type';
+const LEGACY_APPSTORE_PROP_FEED_ID = 'appstore.feedId';
+const LEGACY_APPSTORE_PROP_FEED_URL = 'appstore.feedUrl';
+const LEGACY_APPSTORE_PROP_INSTALLED_AT = 'appstore.installedAt';
+const LEGACY_APPSTORE_PROP_UPDATED_AT = 'appstore.updatedAt';
+
+const PLUGIN_MANAGER_DASHBOARD_TAG = 'slPluginManager';
+const PLUGIN_MANAGER_DASHBOARD_TAG_PACKAGE_PREFIX = 'slPluginManager-pkg-';
+const PLUGIN_MANAGER_DASHBOARD_TAG_VERSION_PREFIX = 'slPluginManager-ver-';
+const PLUGIN_MANAGER_DASHBOARD_TAG_FEED_PREFIX = 'slPluginManager-feed-';
+
+const LEGACY_DASHBOARD_TAG = 'appstore';
+const LEGACY_DASHBOARD_TAG_PACKAGE_PREFIX = 'appstore-pkg-';
+const LEGACY_DASHBOARD_TAG_VERSION_PREFIX = 'appstore-ver-';
+const LEGACY_DASHBOARD_TAG_FEED_PREFIX = 'appstore-feed-';
+
 @Injectable({ providedIn: 'root' })
-export class AppStoreService {
+export class PluginManagerService {
   private origin = window.location.origin;
 
   // Each generated service has a different base URL path prefix burned into its spec.
@@ -84,7 +103,7 @@ export class AppStoreService {
 
   // ── Feed Service ──────────────────────────────────────────────
 
-  /** List all feeds and find the App Store feed by name. */
+  /** List all feeds and find the default Plugin Manager feed by name. */
   async discoverFeed(): Promise<{ id: string; name: string } | null> {
     const { data, error } = await getNifeedV1Feeds({ client: this.feedsClient });
     if (error) throw new Error(`Failed to list feeds: ${JSON.stringify(error)}`);
@@ -105,7 +124,7 @@ export class AppStoreService {
   }
 
   /** List all packages in a feed via the Feed Service packages API.
-   * Reads first-class fields from metadata.* and custom App Store fields from
+  * Reads first-class fields from metadata.* and custom Plugin Manager fields from
    * metadata.attributes, per the feed format spec. */
   async listPackages(feedId: string): Promise<AppPackage[]> {
     const { data, error } = await getNifeedV1FeedsByFeedIdPackages({
@@ -244,7 +263,7 @@ export class AppStoreService {
 
   // ── WebApp Service ────────────────────────────────────────────
 
-  /** Extract the App Store webapp's own ID from the current URL (sync, no fetch). */
+  /** Extract the Plugin Manager webapp's own ID from the current URL (sync, no fetch). */
   getOwnWebappId(): string | null {
     const match = window.location.href.match(/\/webapps\/([0-9a-f-]{36})\//);
     return match ? match[1] : null;
@@ -368,11 +387,11 @@ export class AppStoreService {
     return this.workspacesCache;
   }
 
-  // ── Feed config (stored in App Store webapp properties) ───────
+  // ── Feed config (stored in Plugin Manager webapp properties) ───────
 
   /**
-   * Load the list of registered App Store feeds from the App Store webapp's
-   * own `appstore.feeds` property. Returns an empty array if none are configured.
+  * Load the list of registered Plugin Manager feeds from the webapp's own
+  * property bag. Returns an empty array if none are configured.
    */
   async loadFeedConfigs(): Promise<FeedConfig[]> {
     const ownId = this.getOwnWebappId();
@@ -384,7 +403,11 @@ export class AppStoreService {
     });
     if (error) return [];
 
-    const feedsJson = ((data as any)?.properties ?? {})[APPSTORE_PROP_FEEDS];
+    const feedsJson = this.readProperty(
+      ((data as any)?.properties ?? {}) as Record<string, string>,
+      SL_PLUGIN_MANAGER_PROP_FEEDS,
+      LEGACY_APPSTORE_PROP_FEEDS,
+    );
     if (!feedsJson || typeof feedsJson !== 'string') return [];
 
     try {
@@ -395,12 +418,12 @@ export class AppStoreService {
   }
 
   /**
-   * Persist the list of registered feeds to the App Store webapp's properties.
-   * Merges with any existing non-appstore properties so they are preserved.
+   * Persist the list of registered feeds to the Plugin Manager webapp's properties.
+   * Merges with any existing non-plugin-manager properties so they are preserved.
    */
   async saveFeedConfigs(feeds: FeedConfig[]): Promise<void> {
     const ownId = this.getOwnWebappId();
-    if (!ownId) throw new Error('Cannot save feed config: App Store webapp ID not found');
+    if (!ownId) throw new Error('Cannot save feed config: Plugin Manager webapp ID not found');
 
     // Read current webapp so we can preserve name, policyIds, and non-appstore properties.
     const { data: current } = await sdkGetWebapp({
@@ -408,6 +431,7 @@ export class AppStoreService {
       path: { id: ownId },
     });
     const existing = ((current as any)?.properties ?? {}) as Record<string, string>;
+    const preserved = this.omitProperties(existing, [LEGACY_APPSTORE_PROP_FEEDS]);
     const name = (current as any)?.name ?? '';
     const policyIds = (current as any)?.policyIds ?? [];
 
@@ -418,8 +442,8 @@ export class AppStoreService {
         name,
         policyIds,
         properties: this.stripEmptyValues({
-          ...existing,
-          [APPSTORE_PROP_FEEDS]: JSON.stringify(feeds),
+          ...preserved,
+          [SL_PLUGIN_MANAGER_PROP_FEEDS]: JSON.stringify(feeds),
         }),
       },
     });
@@ -427,8 +451,8 @@ export class AppStoreService {
   }
 
   /**
-   * Tag the App Store's own webapp with the standard `appstore.*` identification
-   * properties so it appears as an installed (and upgradable) app in the catalog.
+  * Tag the Plugin Manager's own webapp with the standard `slPluginManager.*`
+  * identification properties so it appears as an installed app in the catalog.
    * Should be called during onboarding once the primary feed is configured.
    */
   async tagOwnWebapp(feedId: string, feedUrl: string): Promise<void> {
@@ -444,7 +468,11 @@ export class AppStoreService {
     const policyIds = (current as any)?.policyIds ?? [];
 
     // Only set installedAt if not already present (preserve original install time).
-    const installedAt = existing[APPSTORE_PROP_INSTALLED_AT] || new Date().toISOString();
+    const installedAt = this.readProperty(
+      existing,
+      SL_PLUGIN_MANAGER_PROP_INSTALLED_AT,
+      LEGACY_APPSTORE_PROP_INSTALLED_AT,
+    ) || new Date().toISOString();
 
     const { error } = await sdkUpdateWebapp({
       client: this.webAppClient,
@@ -453,29 +481,37 @@ export class AppStoreService {
         name,
         policyIds,
         properties: this.stripEmptyValues({
-          ...existing,
-          [APPSTORE_PROP_PACKAGE]: APP_STORE_PACKAGE_NAME,
-          [APPSTORE_PROP_VERSION]: APP_STORE_VERSION,
-          [APPSTORE_PROP_TYPE]: 'webapp',
-          [APPSTORE_PROP_FEED_ID]: feedId,
-          [APPSTORE_PROP_FEED_URL]: feedUrl,
-          [APPSTORE_PROP_INSTALLED_AT]: installedAt,
+          ...this.omitProperties(existing, [
+            LEGACY_APPSTORE_PROP_PACKAGE,
+            LEGACY_APPSTORE_PROP_VERSION,
+            LEGACY_APPSTORE_PROP_TYPE,
+            LEGACY_APPSTORE_PROP_FEED_ID,
+            LEGACY_APPSTORE_PROP_FEED_URL,
+            LEGACY_APPSTORE_PROP_INSTALLED_AT,
+            LEGACY_APPSTORE_PROP_UPDATED_AT,
+          ]),
+          [SL_PLUGIN_MANAGER_PROP_PACKAGE]: PLUGIN_MANAGER_PACKAGE_NAME,
+          [SL_PLUGIN_MANAGER_PROP_VERSION]: PLUGIN_MANAGER_VERSION,
+          [SL_PLUGIN_MANAGER_PROP_TYPE]: 'webapp',
+          [SL_PLUGIN_MANAGER_PROP_FEED_ID]: feedId,
+          [SL_PLUGIN_MANAGER_PROP_FEED_URL]: feedUrl,
+          [SL_PLUGIN_MANAGER_PROP_INSTALLED_AT]: installedAt,
         }),
       },
     });
-    if (error) throw new Error(`Failed to tag App Store webapp: ${JSON.stringify(error)}`);
+    if (error) throw new Error(`Failed to tag Plugin Manager webapp: ${JSON.stringify(error)}`);
   }
 
   // ── Installed resource discovery ────────────────────────────────
 
   /**
-   * Return all resources installed through the App Store across all
+  * Return all resources installed through the Plugin Manager across all
    * workspaces visible to the current user.
    * Queries webapps, notebooks, and dashboards in parallel.
    */
   async listInstalledWebapps(): Promise<WorkspaceInstallation[]> {
     const now = Date.now();
-    if (this.installedCache && (now - this.installedCache.ts) < AppStoreService.CACHE_TTL_MS) {
+    if (this.installedCache && (now - this.installedCache.ts) < PluginManagerService.CACHE_TTL_MS) {
       return this.installedCache.promise;
     }
     const promise = this.fetchInstalledWebapps();
@@ -490,60 +526,70 @@ export class AppStoreService {
       this.getWorkspace(),
       this.listReadableWorkspaces().catch(() => [] as WorkspaceInfo[]),
       this.listAllWebapps(),
-      this.listAppStoreNotebooks().catch(() => []),
-      this.listAppStoreDashboards().catch(() => []),
+      this.listPluginManagerNotebooks().catch(() => []),
+      this.listPluginManagerDashboards().catch(() => []),
       this.loadFeedConfigs().catch(() => [] as FeedConfig[]),
     ]);
 
     const workspaceNames = new Map(workspaces.map(w => [w.id, w.name]));
     const installations: WorkspaceInstallation[] = [];
 
-    // Webapps: identified by appstore.packageName property.
+    // Webapps: identified by Plugin Manager package-name properties.
     // Skip 'notebook' and 'dashboard' typed entries — those resource types are
     // discovered through their own service queries below and would otherwise
     // produce duplicate installations (the Notebook and Dashboard services
     // mirror their resources in the WebApp Service).
     for (const webapp of webapps) {
       const props = ((webapp.properties ?? {}) as Record<string, string>);
-      const packageName = props[APPSTORE_PROP_PACKAGE];
+      const packageName = this.readProperty(
+        props,
+        SL_PLUGIN_MANAGER_PROP_PACKAGE,
+        LEGACY_APPSTORE_PROP_PACKAGE,
+      );
       if (!packageName) continue;
-      const resourceType = (props[APPSTORE_PROP_TYPE] ?? 'webapp').toLowerCase();
+      const resourceType = (
+        this.readProperty(props, SL_PLUGIN_MANAGER_PROP_TYPE, LEGACY_APPSTORE_PROP_TYPE) || 'webapp'
+      ).toLowerCase();
       if (resourceType === 'notebook' || resourceType === 'dashboard') continue;
 
       const workspaceId = webapp.workspace ?? '';
       installations.push({
         packageName,
         resourceName: webapp.name ?? '',
-        version: props[APPSTORE_PROP_VERSION] ?? '',
-        type: (props[APPSTORE_PROP_TYPE] ?? 'webapp') as AppType,
+        version: this.readProperty(props, SL_PLUGIN_MANAGER_PROP_VERSION, LEGACY_APPSTORE_PROP_VERSION),
+        type: (this.readProperty(props, SL_PLUGIN_MANAGER_PROP_TYPE, LEGACY_APPSTORE_PROP_TYPE) || 'webapp') as AppType,
         webappId: webapp.id ?? '',
-        feedId: props[APPSTORE_PROP_FEED_ID] ?? '',
-        feedUrl: props[APPSTORE_PROP_FEED_URL] ?? '',
-        installedAt: props[APPSTORE_PROP_INSTALLED_AT] ?? '',
-        updatedAt: props[APPSTORE_PROP_UPDATED_AT] || null,
+        feedId: this.readProperty(props, SL_PLUGIN_MANAGER_PROP_FEED_ID, LEGACY_APPSTORE_PROP_FEED_ID),
+        feedUrl: this.readProperty(props, SL_PLUGIN_MANAGER_PROP_FEED_URL, LEGACY_APPSTORE_PROP_FEED_URL),
+        installedAt: this.readProperty(props, SL_PLUGIN_MANAGER_PROP_INSTALLED_AT, LEGACY_APPSTORE_PROP_INSTALLED_AT),
+        updatedAt: this.readProperty(props, SL_PLUGIN_MANAGER_PROP_UPDATED_AT, LEGACY_APPSTORE_PROP_UPDATED_AT) || null,
         workspaceId,
         workspaceName: workspaceNames.get(workspaceId) ?? workspaceId,
         isCurrentWorkspace: workspaceId === currentWorkspace,
       });
     }
 
-    // Notebooks: identified by appstore.packageName in notebook properties
+    // Notebooks: identified by Plugin Manager package-name properties.
     for (const nb of notebooks) {
       const props = (nb.properties ?? {}) as Record<string, string>;
-      const packageName = props[APPSTORE_PROP_PACKAGE];
+      const packageName = this.readProperty(
+        props,
+        SL_PLUGIN_MANAGER_PROP_PACKAGE,
+        LEGACY_APPSTORE_PROP_PACKAGE,
+      );
       if (!packageName) continue;
 
       const workspaceId = nb.workspace ?? '';
       installations.push({
         packageName,
         resourceName: nb.name ?? '',
-        version: props[APPSTORE_PROP_VERSION] ?? '',
+        version: this.readProperty(props, SL_PLUGIN_MANAGER_PROP_VERSION, LEGACY_APPSTORE_PROP_VERSION),
         type: 'notebook',
         webappId: nb.id ?? '',
-        feedId: props[APPSTORE_PROP_FEED_ID] ?? '',
-        feedUrl: props[APPSTORE_PROP_FEED_URL] ?? '',
-        installedAt: props[APPSTORE_PROP_INSTALLED_AT] ?? '',
-        updatedAt: props[APPSTORE_PROP_UPDATED_AT] || null,
+        feedId: this.readProperty(props, SL_PLUGIN_MANAGER_PROP_FEED_ID, LEGACY_APPSTORE_PROP_FEED_ID),
+        feedUrl: this.readProperty(props, SL_PLUGIN_MANAGER_PROP_FEED_URL, LEGACY_APPSTORE_PROP_FEED_URL),
+        installedAt: this.readProperty(props, SL_PLUGIN_MANAGER_PROP_INSTALLED_AT, LEGACY_APPSTORE_PROP_INSTALLED_AT),
+        updatedAt: this.readProperty(props, SL_PLUGIN_MANAGER_PROP_UPDATED_AT, LEGACY_APPSTORE_PROP_UPDATED_AT) || null,
         workspaceId,
         workspaceName: workspaceNames.get(workspaceId) ?? workspaceId,
         isCurrentWorkspace: workspaceId === currentWorkspace,
@@ -557,20 +603,31 @@ export class AppStoreService {
       folderToWorkspace.set(`${w.name} Workspace`, { id: w.id, name: w.name });
     }
 
-    // Dashboards: identified by 'appstore' tag, metadata encoded in tag prefixes
+    // Dashboards: identified by Plugin Manager tags, metadata encoded in tag prefixes.
     for (const db of dashboards) {
       const tags: string[] = db.tags ?? [];
-      if (!tags.includes('appstore')) continue;
+      if (!tags.includes(PLUGIN_MANAGER_DASHBOARD_TAG) && !tags.includes(LEGACY_DASHBOARD_TAG)) continue;
 
-      // Extract metadata from hyphen-prefixed tags
-      const pkgTag = tags.find((t: string) => t.startsWith('appstore-pkg-'));
-      const verTag = tags.find((t: string) => t.startsWith('appstore-ver-'));
-      const feedTag = tags.find((t: string) => t.startsWith('appstore-feed-'));
-      const packageName = pkgTag?.substring('appstore-pkg-'.length) ?? '';
+      const pkgTag = tags.find((t: string) =>
+        t.startsWith(PLUGIN_MANAGER_DASHBOARD_TAG_PACKAGE_PREFIX) || t.startsWith(LEGACY_DASHBOARD_TAG_PACKAGE_PREFIX)
+      );
+      const verTag = tags.find((t: string) =>
+        t.startsWith(PLUGIN_MANAGER_DASHBOARD_TAG_VERSION_PREFIX) || t.startsWith(LEGACY_DASHBOARD_TAG_VERSION_PREFIX)
+      );
+      const feedTag = tags.find((t: string) =>
+        t.startsWith(PLUGIN_MANAGER_DASHBOARD_TAG_FEED_PREFIX) || t.startsWith(LEGACY_DASHBOARD_TAG_FEED_PREFIX)
+      );
+      const packageName = this.stripTagPrefix(pkgTag, [
+        PLUGIN_MANAGER_DASHBOARD_TAG_PACKAGE_PREFIX,
+        LEGACY_DASHBOARD_TAG_PACKAGE_PREFIX,
+      ]);
       if (!packageName) continue;
 
       // Look up feedUrl from feed config using feedId
-      const feedId = feedTag?.substring('appstore-feed-'.length) ?? '';
+      const feedId = this.stripTagPrefix(feedTag, [
+        PLUGIN_MANAGER_DASHBOARD_TAG_FEED_PREFIX,
+        LEGACY_DASHBOARD_TAG_FEED_PREFIX,
+      ]);
       const feedUrl = feedId ? (feedConfigs.find(f => f.feedId === feedId)?.url ?? '') : '';
 
       // Infer workspace from Grafana folder title
@@ -580,7 +637,10 @@ export class AppStoreService {
       installations.push({
         packageName,
         resourceName: db.title ?? '',
-        version: verTag?.substring('appstore-ver-'.length) ?? '',
+        version: this.stripTagPrefix(verTag, [
+          PLUGIN_MANAGER_DASHBOARD_TAG_VERSION_PREFIX,
+          LEGACY_DASHBOARD_TAG_VERSION_PREFIX,
+        ]),
         type: 'dashboard',
         webappId: String(db.uid ?? db.id ?? ''),
         feedId,
@@ -596,11 +656,11 @@ export class AppStoreService {
     return installations;
   }
 
-  /** Query notebooks that have appstore metadata in their properties.
+  /** Query notebooks that have Plugin Manager metadata in their properties.
    * The notebook query API cannot filter on dot-keyed property names (it parses
-   * "properties.appstore.packageName" as nested-field access rather than a
+   * flat keys like "slPluginManager.packageName" as nested-field access rather than a
    * flat-key lookup). Fetch all notebooks and filter client-side instead. */
-  private async listAppStoreNotebooks(): Promise<any[]> {
+  private async listPluginManagerNotebooks(): Promise<any[]> {
     const res = await fetch(`${this.origin}/ninotebook/v1/notebook/query`, {
       method: 'POST',
       credentials: 'include',
@@ -610,18 +670,35 @@ export class AppStoreService {
     if (!res.ok) return [];
     const data = await res.json();
     const notebooks: any[] = data?.notebooks ?? [];
-    return notebooks.filter(nb => nb.properties?.[APPSTORE_PROP_PACKAGE]);
+    return notebooks.filter((nb: any) =>
+      !!this.readProperty(
+        (nb.properties ?? {}) as Record<string, string>,
+        SL_PLUGIN_MANAGER_PROP_PACKAGE,
+        LEGACY_APPSTORE_PROP_PACKAGE,
+      )
+    );
   }
 
-  /** Search for Grafana dashboards tagged with 'appstore'. */
-  private async listAppStoreDashboards(): Promise<any[]> {
+  /** Search for Grafana dashboards tagged with Plugin Manager metadata. */
+  private async listPluginManagerDashboards(): Promise<any[]> {
     await this.ensureGrafanaSession();
-    const res = await fetch(
-      `${this.origin}/dashboardhost/api/search?type=dash-db&tag=appstore&limit=1000`,
-      { credentials: 'include' },
+    const searches = await Promise.all([
+      fetch(`${this.origin}/dashboardhost/api/search?type=dash-db&tag=${encodeURIComponent(PLUGIN_MANAGER_DASHBOARD_TAG)}&limit=1000`, {
+        credentials: 'include',
+      }),
+      fetch(`${this.origin}/dashboardhost/api/search?type=dash-db&tag=${encodeURIComponent(LEGACY_DASHBOARD_TAG)}&limit=1000`, {
+        credentials: 'include',
+      }),
+    ]);
+    const dashboards = await Promise.all(
+      searches.map(async res => (res.ok ? (await res.json()) as any[] : [] as any[]))
     );
-    if (!res.ok) return [];
-    return res.json();
+    const deduped = new Map<string, any>();
+    for (const entry of dashboards.flat()) {
+      const key = String(entry.uid ?? entry.id ?? entry.title ?? Math.random());
+      deduped.set(key, entry);
+    }
+    return [...deduped.values()];
   }
 
   // ── Install / Upgrade / Uninstall ─────────────────────────────
@@ -645,14 +722,14 @@ export class AppStoreService {
       await this.installDashboard(feedId, pkg, feedConfig, resolvedWorkspace);
     } else {
       const nipkgBlob = await this.downloadPackageFile(feedId, this.extractFileName(pkg.filename));
-      const properties = this.buildAppStoreProperties(pkg, feedConfig);
+      const properties = this.buildPluginManagerProperties(pkg, feedConfig);
       const webapp = await this.createWebapp(pkg.displayName, resolvedWorkspace, properties);
       await this.uploadContent(webapp.id, nipkgBlob);
     }
     this.invalidateInstallCache();
   }
 
-  /** Install a notebook into the notebook service with appstore metadata in its properties. */
+  /** Install a notebook into the notebook service with Plugin Manager metadata in its properties. */
   private async installNotebook(
     feedId: string,
     pkg: AppPackage,
@@ -667,8 +744,8 @@ export class AppStoreService {
       path => path.endsWith('.ipynb'),
     );
 
-    // Build metadata with all appstore properties so the notebook is self-describing.
-    const properties = this.buildAppStoreProperties(pkg, feedConfig);
+    // Build metadata with all Plugin Manager properties so the notebook is self-describing.
+    const properties = this.buildPluginManagerProperties(pkg, feedConfig);
     const metadata = { name: pkg.displayName, workspace, properties };
 
     const formData = new FormData();
@@ -694,7 +771,7 @@ export class AppStoreService {
   }
 
   /** Install a dashboard into the dashboardhost (Grafana) service.
-   * Grafana has no key-value properties — we use tags for appstore metadata. */
+  * Grafana has no key-value properties — we use tags for Plugin Manager metadata. */
   private async installDashboard(
     feedId: string,
     pkg: AppPackage,
@@ -801,8 +878,8 @@ export class AppStoreService {
 
     const metadata = {
       properties: {
-        [APPSTORE_PROP_VERSION]: pkg.version,
-        [APPSTORE_PROP_UPDATED_AT]: new Date().toISOString(),
+        [SL_PLUGIN_MANAGER_PROP_VERSION]: pkg.version,
+        [SL_PLUGIN_MANAGER_PROP_UPDATED_AT]: new Date().toISOString(),
       },
     };
     const formData = new FormData();
@@ -843,9 +920,9 @@ export class AppStoreService {
 
     // Update the version tag
     const existingTags: string[] = (current.dashboard?.tags ?? []).filter(
-      (t: string) => !t.startsWith('appstore-ver-'),
+      (t: string) => !t.startsWith(PLUGIN_MANAGER_DASHBOARD_TAG_VERSION_PREFIX) && !t.startsWith(LEGACY_DASHBOARD_TAG_VERSION_PREFIX),
     );
-    existingTags.push(`appstore-ver-${pkg.version}`);
+    existingTags.push(`${PLUGIN_MANAGER_DASHBOARD_TAG_VERSION_PREFIX}${pkg.version}`);
 
     const body = {
       dashboard: {
@@ -856,7 +933,7 @@ export class AppStoreService {
         tags: existingTags,
         version: current.dashboard?.version ?? 0,
       },
-      message: `Upgraded from App Store: ${pkg.packageName} v${pkg.version}`,
+      message: `Upgraded from Plugin Manager: ${pkg.packageName} v${pkg.version}`,
       overwrite: true,
       folderUid: current.meta?.folderUid,
     };
@@ -978,10 +1055,10 @@ export class AppStoreService {
 
   private buildDashboardTags(pkg: AppPackage, feedConfig: FeedConfig | null): string[] {
     return [
-      'appstore',
-      `appstore-pkg-${pkg.packageName}`,
-      `appstore-ver-${pkg.version}`,
-      ...(feedConfig?.feedId ? [`appstore-feed-${feedConfig.feedId}`] : []),
+      PLUGIN_MANAGER_DASHBOARD_TAG,
+      `${PLUGIN_MANAGER_DASHBOARD_TAG_PACKAGE_PREFIX}${pkg.packageName}`,
+      `${PLUGIN_MANAGER_DASHBOARD_TAG_VERSION_PREFIX}${pkg.version}`,
+      ...(feedConfig?.feedId ? [`${PLUGIN_MANAGER_DASHBOARD_TAG_FEED_PREFIX}${feedConfig.feedId}`] : []),
     ];
   }
 
@@ -1029,15 +1106,15 @@ export class AppStoreService {
 
   // ── Helpers ───────────────────────────────────────────────────
 
-  /** Build the `appstore.*` property map for an installed resource. */
-  private buildAppStoreProperties(pkg: AppPackage, feedConfig: FeedConfig | null): Record<string, string> {
+  /** Build the `slPluginManager.*` property map for an installed resource. */
+  private buildPluginManagerProperties(pkg: AppPackage, feedConfig: FeedConfig | null): Record<string, string> {
     return this.stripEmptyValues({
-      [APPSTORE_PROP_PACKAGE]: pkg.packageName,
-      [APPSTORE_PROP_VERSION]: pkg.version,
-      [APPSTORE_PROP_TYPE]: pkg.type,
-      [APPSTORE_PROP_FEED_ID]: feedConfig?.feedId ?? '',
-      [APPSTORE_PROP_FEED_URL]: feedConfig?.url ?? '',
-      [APPSTORE_PROP_INSTALLED_AT]: new Date().toISOString(),
+      [SL_PLUGIN_MANAGER_PROP_PACKAGE]: pkg.packageName,
+      [SL_PLUGIN_MANAGER_PROP_VERSION]: pkg.version,
+      [SL_PLUGIN_MANAGER_PROP_TYPE]: pkg.type,
+      [SL_PLUGIN_MANAGER_PROP_FEED_ID]: feedConfig?.feedId ?? '',
+      [SL_PLUGIN_MANAGER_PROP_FEED_URL]: feedConfig?.url ?? '',
+      [SL_PLUGIN_MANAGER_PROP_INSTALLED_AT]: new Date().toISOString(),
     });
   }
 
@@ -1059,8 +1136,8 @@ export class AppStoreService {
         policyIds,
         properties: this.stripEmptyValues({
           ...existing,
-          [APPSTORE_PROP_VERSION]: newVersion,
-          [APPSTORE_PROP_UPDATED_AT]: new Date().toISOString(),
+          [SL_PLUGIN_MANAGER_PROP_VERSION]: newVersion,
+          [SL_PLUGIN_MANAGER_PROP_UPDATED_AT]: new Date().toISOString(),
         }),
       },
     });
@@ -1068,15 +1145,25 @@ export class AppStoreService {
   }
 
   /** Map a Feed Service Package resource to an AppPackage.
-   * First-class fields come from metadata.*, custom App Store fields from metadata.attributes.
+   * First-class fields come from metadata.*, custom Plugin Manager fields from metadata.attributes.
    * The Feed Service is expected to strip the XB- prefix from attribute names, but this has
    * not been confirmed to be consistent across all versions. We therefore check bare names
    * first and fall back to XB-prefixed variants as a defensive measure. */
   private mapPackageResource(pkg: Package): AppPackage {
     const m = pkg.metadata ?? {};
     const attrs = m.attributes ?? {};
-    // Helper: look up a key trying the bare name first, then the XB- prefixed variant.
-    const attr = (key: string): string => attrs[key] ?? attrs[`XB-${key}`] ?? '';
+    const attr = (...keys: string[]): string => {
+      for (const key of keys) {
+        const value = attrs[key] ?? attrs[`XB-${key}`];
+        if (typeof value === 'string' && value !== '') return value;
+      }
+      return '';
+    };
+    const normalizedSection = this.isLegacyTopLevelSection(m.section ?? '') ? '' : (m.section ?? '');
+    const normalizedType =
+      this.normalizePluginType(attr('Plugin', 'AppStoreType')) ||
+      this.normalizePluginType(m.section ?? '') ||
+      'webapp';
     return {
       packageName: m.packageName ?? '',
       version: m.version ?? attr('DisplayVersion'),
@@ -1085,19 +1172,19 @@ export class AppStoreService {
       section: m.section ?? '',
       maintainer: m.maintainer ?? '',
       homepage: m.homepage ?? '',
-      icon: attr('AppStoreIcon'),
+      icon: attr('SlPluginManagerIcon', 'AppStoreIcon'),
       screenshots: [
-        attr('AppStoreScreenshot1'),
-        attr('AppStoreScreenshot2'),
-        attr('AppStoreScreenshot3'),
+        attr('SlPluginManagerScreenshot1', 'AppStoreScreenshot1'),
+        attr('SlPluginManagerScreenshot2', 'AppStoreScreenshot2'),
+        attr('SlPluginManagerScreenshot3', 'AppStoreScreenshot3'),
       ].filter((v): v is string => !!v),
-      category: attr('AppStoreCategory'),
-      type: attr('AppStoreType') || 'webapp',
-      author: attr('AppStoreAuthor'),
-      license: attr('AppStoreLicense'),
-      tags: m.tags ?? attr('AppStoreTags'),
-      repo: attr('AppStoreRepo') || (m.homepage ?? ''),
-      minServerVersion: attr('AppStoreMinServerVersion'),
+      category: normalizedSection || attr('AppStoreCategory'),
+      type: normalizedType,
+      author: this.extractMaintainerDisplayName(m.maintainer ?? ''),
+      license: attr('SlPluginManagerLicense', 'AppStoreLicense'),
+      tags: (m.tags as string | undefined) ?? attr('SlPluginManagerTags', 'AppStoreTags'),
+      repo: m.homepage ?? attr('AppStoreRepo'),
+      minServerVersion: attr('SlPluginManagerMinServerVersion', 'AppStoreMinServerVersion'),
       size: m.size ?? 0,
       sha256: attr('SHA256'),
       filename: m.fileName ?? '',
@@ -1107,12 +1194,18 @@ export class AppStoreService {
 
   private isUserVisibleWebappResource(pkg: Package): boolean {
     const attrs = pkg.metadata?.attributes ?? {};
-    const attr = (key: string): string => attrs[key] ?? attrs[`XB-${key}`] ?? '';
+    const attr = (...keys: string[]): string => {
+      for (const key of keys) {
+        const value = attrs[key] ?? attrs[`XB-${key}`];
+        if (typeof value === 'string' && value !== '') return value;
+      }
+      return '';
+    };
     if (attr('UserVisible') === 'no') return false;
-    const packageType = attr('AppStoreType').trim().toLowerCase();
+    const packageType = this.normalizePluginType(attr('Plugin', 'AppStoreType'));
     if (packageType) return ['webapp', 'notebook', 'dashboard'].includes(packageType);
-    const section = (pkg.metadata?.section ?? '').trim();
-    return ['WebApps', 'Notebooks'].includes(section);
+    const section = this.normalizePluginType(pkg.metadata?.section ?? '');
+    return ['webapp', 'notebook', 'dashboard'].includes(section);
   }
 
   private selectLatestPackages(packages: AppPackage[]): AppPackage[] {
@@ -1133,6 +1226,56 @@ export class AppStoreService {
   /** Remove entries with empty-string values — the WebApp Service rejects them. */
   private stripEmptyValues(props: Record<string, string>): Record<string, string> {
     return Object.fromEntries(Object.entries(props).filter(([, v]) => v !== ''));
+  }
+
+  private readProperty(props: Record<string, string>, ...keys: string[]): string {
+    for (const key of keys) {
+      const value = props[key];
+      if (typeof value === 'string' && value !== '') return value;
+    }
+    return '';
+  }
+
+  private omitProperties(props: Record<string, string>, keys: string[]): Record<string, string> {
+    const clone = { ...props };
+    for (const key of keys) delete clone[key];
+    return clone;
+  }
+
+  private normalizePluginType(value: string): string {
+    const normalized = value.trim().toLowerCase();
+    switch (normalized) {
+      case 'webapps':
+        return 'webapp';
+      case 'notebooks':
+        return 'notebook';
+      case 'dashboards':
+        return 'dashboard';
+      case 'add-ons':
+      case 'addons':
+        return 'bundle';
+      default:
+        return normalized;
+    }
+  }
+
+  private isLegacyTopLevelSection(value: string): boolean {
+    return ['webapps', 'notebooks', 'dashboards', 'add-ons', 'addons'].includes(
+      value.trim().toLowerCase(),
+    );
+  }
+
+  private extractMaintainerDisplayName(maintainer: string): string {
+    const match = maintainer.match(/^(.*?)\s*</);
+    return (match?.[1] ?? maintainer).trim();
+  }
+
+  private stripTagPrefix(tag: string | undefined, prefixes: string[]): string {
+    if (!tag) return '';
+    for (const prefix of prefixes) {
+      if (tag.startsWith(prefix)) return tag.substring(prefix.length);
+    }
+    return '';
   }
 
   private extractFileName(filenameOrUrl: string): string {
