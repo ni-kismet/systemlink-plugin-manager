@@ -210,7 +210,6 @@ slcli system get <SYSTEM_ID> --include-assets       # Assets (niapm/v1)
 slcli system get <SYSTEM_ID> --include-alarms       # Active alarm instances
 slcli system get <SYSTEM_ID> --include-jobs         # Recent jobs
 slcli system get <SYSTEM_ID> --include-results      # Test results (nitestmonitor/v2)
-slcli system get <SYSTEM_ID> --include-states       # System state instances (nisystemsstate/v1)
 slcli system get <SYSTEM_ID> --include-workitems    # Scheduled test plan work items
 
 # Convenience shorthand: enables all sections including packages and feeds
@@ -282,6 +281,9 @@ slcli routine create \
   --actions '<actions-json>'
 
 # Create a v1 notebook routine (SCHEDULED)
+# IMPORTANT: startTime must be in the future (UTC). The API rejects past start times.
+# Use ISO-8601 UTC format (e.g. 2026-03-03T09:00:00Z). Since the server operates in UTC,
+# verify the current UTC time first if in doubt: date -u
 slcli routine create --api-version v1 \
   --name "Daily Notebook" \
   --type SCHEDULED \
@@ -466,7 +468,7 @@ Manage named connection profiles (dev, test, prod). Credentials are stored in
 ```bash
 slcli login [--profile NAME] [--url URL] [--api-key KEY] [--web-url URL] [--workspace NAME]
 slcli logout [--profile NAME] [--all] [--force]
-slcli info [-f json]                            # Show active profile and feature availability
+slcli info [-f json] [--skip-health]            # Show active profile and service health
 slcli completion [--shell SHELL] [--install]    # Generate or install shell tab completion
 
 slcli config list [-f json]                     # List all profiles
@@ -663,7 +665,7 @@ slcli workitem create \
 Scaffold, package, and publish custom web applications to SystemLink.
 
 ```bash
-slcli webapp init [--directory DIR]                      # Scaffold a sample index.html
+slcli webapp init [--template html|angular] [--directory DIR]  # Scaffold a new project
 slcli webapp pack [--directory DIR] [-o OUTPUT_FILE]     # Package webapp into a .zip
 slcli webapp list [-w WORKSPACE] [-t INT] [-f json]
 slcli webapp get <WEBAPP_ID> [-f json]
@@ -671,6 +673,27 @@ slcli webapp publish --file PATH [--workspace NAME]      # Upload and publish a 
 slcli webapp delete <WEBAPP_ID>
 slcli webapp open <WEBAPP_ID>                            # Open webapp URL in browser
 ```
+
+Templates:
+- `html` (default) — minimal index.html
+- `angular` — Nimble Angular project with `PROMPTS.md`, `README.md`, and bundled AI skills installed into `.agents/skills/`
+
+### skill — AI skill installation
+
+Install bundled skills for supported AI clients.
+
+```bash
+slcli skill install --skill [slcli|systemlink-webapp|all] --client [agents|claude|all] --scope [personal|project|both]
+```
+
+Client paths:
+- `agents` — personal: `~/.agents/skills/`, project: `.agents/skills/` (most agents)
+- `claude` — personal: `~/.claude/skills/`, project: `.claude/skills/`
+- `all` — install to both the `agents` and `claude` locations for the selected scope
+
+Notes:
+- `agents` is the default client in interactive mode.
+- `webapp init --template angular` installs project-scoped skills into `.agents/skills/` by default.
 
 ### example — Built-in example resource provisioning
 

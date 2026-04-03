@@ -1,6 +1,6 @@
 {
   "package": "systemlink-plugin-manager",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "displayName": "Plugin Manager for SystemLink",
   "description": "A curated plugin manager for discovering, installing, upgrading, and removing SystemLink extensions from replicated package feeds.",
   "section": "Administration",
