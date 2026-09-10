@@ -34,7 +34,11 @@ MAX_SCREENSHOTS = 3
 def base64_encode_file(path: Path) -> str:
     mime, _ = mimetypes.guess_type(str(path))
     if mime is None:
-        mime = "image/svg+xml" if path.suffix.lower() == ".svg" else "application/octet-stream"
+        mime = (
+            "image/svg+xml"
+            if path.suffix.lower() == ".svg"
+            else "application/octet-stream"
+        )
     with open(path, "rb") as stream:
         encoded = base64.b64encode(stream.read()).decode("ascii")
     return f"data:{mime};base64,{encoded}"
@@ -69,7 +73,12 @@ def load_submission(
     try:
         manifest = load_manifest(manifest_path)
     except (json.JSONDecodeError, OSError) as exc:
-        return {}, {}, None, [f"[{submission_dir.name}] Failed to read manifest.json: {exc}"]
+        return (
+            {},
+            {},
+            None,
+            [f"[{submission_dir.name}] Failed to read manifest.json: {exc}"],
+        )
 
     errors.extend(validate_manifest(manifest, submission_dir))
     if errors:
@@ -89,7 +98,9 @@ def load_submission(
 
         actual_sha256 = sha256_file(nipkg_path)
         if actual_sha256 != manifest["sha256"]:
-            errors.append(f"[{submission_dir.name}] sha256 does not match the submitted .nipkg")
+            errors.append(
+                f"[{submission_dir.name}] sha256 does not match the submitted .nipkg"
+            )
             return manifest, {}, None, errors
 
         errors.extend(validate_nipkg_archive(nipkg_path, submission_dir.name))
@@ -120,7 +131,7 @@ def build_stanza(
 ) -> str:
     package = metadata["package"]
     version = metadata["version"]
-    release_tag = manifest.get("releaseTag") or f"{package}-v{version}"
+    release_tag = f"{package}-v{version}"
     filename = manifest["nipkgFile"]
     filename_url = f"{repo_url}/releases/download/{release_tag}/{filename}"
 
@@ -168,7 +179,9 @@ def build_stanza(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Rebuild Packages index from submissions/")
+    parser = argparse.ArgumentParser(
+        description="Rebuild Packages index from submissions/"
+    )
     parser.add_argument(
         "--repo-url",
         help="GitHub repository URL for constructing release asset URLs",
@@ -197,7 +210,9 @@ def main() -> int:
     )
 
     for submission_dir in submission_dirs:
-        manifest, metadata, nipkg_path, errors = load_submission(submission_dir, repo_url)
+        manifest, metadata, nipkg_path, errors = load_submission(
+            submission_dir, repo_url
+        )
         all_errors.extend(errors)
         if errors:
             continue
@@ -211,7 +226,9 @@ def main() -> int:
         seen_packages[package] = submission_dir.name
 
         assert nipkg_path is not None
-        stanzas.append(build_stanza(manifest, metadata, nipkg_path, repo_url, submission_dir))
+        stanzas.append(
+            build_stanza(manifest, metadata, nipkg_path, repo_url, submission_dir)
+        )
 
     if all_errors:
         print("Validation errors:", file=sys.stderr)

@@ -1,6 +1,6 @@
 Architecture: all
 Description: A configuration utility tool for dynamically configuring form fields in SystemLink applications.
-Filename: https://github.com/ni-kismet/systemlink-plugin-manager/releases/download/dynamic-form-field-configurator_v0.28.4/dynamic-form-field-configurator_0.28.4_all.nipkg
+Filename: https://github.com/ni-kismet/systemlink-plugin-manager/releases/download/dynamic-form-field-configurator-v0.28.4/dynamic-form-field-configurator_0.28.4_all.nipkg
 Homepage: https://www.ni.com
 MD5sum: a03cd1b6272bf8759b94b2bcab72dd25
 Maintainer: Erik Hoglid <erik.hoglid@emerson.com>
