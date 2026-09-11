@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Remove ni-labs-welcome package",
+  "packageName": "systemlink-plugin-manager",
+  "email": "1458528+fredvisser@users.noreply.github.com",
+  "dependentChangeType": "patch"
+}
