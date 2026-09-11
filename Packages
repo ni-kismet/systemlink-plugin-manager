@@ -39,26 +39,6 @@ XB-SlPluginManagerTags: ni-labs,example,notebook,assets,calibration,alarms,notif
 XB-UserVisible: yes
 
 Architecture: all
-Description: A minimal NI Labs example plugin used to verify build, packaging, and app-store submission automation.
-Filename: https://github.com/ni-kismet/systemlink-plugin-manager/releases/download/ni-labs-welcome-v0.1.0/ni-labs-welcome_0.1.0_all.nipkg
-Homepage: https://github.com/ni-kismet/systemlink-plugins-ni-labs
-MD5sum: a462afea086ef8db0528cd61a6f16256
-Maintainer: NI Kismet <appstore@ni.com>
-Package: ni-labs-welcome
-Section: Diagnostics
-SHA256: 0674fbbb04e65a974a110a03fb231f4e82a8fb725c63b59eb3cb464f08e00119
-Size: 3166
-Version: 0.1.0
-XB-DisplayName: NI Labs Welcome
-XB-DisplayVersion: 0.1.0
-XB-Plugin: webapp
-XB-SlPluginManagerIcon: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUiPgogIDx0aXRsZT5OSSBMYWJzIFdlbGNvbWU8L3RpdGxlPgogIDxkZWZzPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJiZyIgeDE9IjAiIHgyPSIxIiB5MT0iMCIgeTI9IjEiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMGE0ZjVhIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM1OWEzNmYiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI0IiBmaWxsPSJ1cmwoI2JnKSIgLz4KICA8cGF0aCBkPSJNMzIgODhWNDBoMTJsMjAgMjhWNDBoMTJ2NDhINjRMNDQgNjB2MjhIMzJaIiBmaWxsPSIjZjdmNWU4IiAvPgogIDxjaXJjbGUgY3g9IjkyIiBjeT0iMzgiIHI9IjEwIiBmaWxsPSIjZjJjMTRlIiAvPgo8L3N2Zz4K
-XB-SlPluginManagerLicense: MIT
-XB-SlPluginManagerMinServerVersion: 2024 Q4
-XB-SlPluginManagerTags: ni-labs,example,welcome,webapp
-XB-UserVisible: yes
-
-Architecture: all
 Description: A drag-and-drop Kanban board for visualizing and managing SystemLink work items by state.
 Filename: https://github.com/ni-kismet/systemlink-plugin-manager/releases/download/ni-labs-work-item-kanban-board-v0.1.0/ni-labs-work-item-kanban-board_0.1.0_all.nipkg
 Homepage: https://github.com/ni-kismet/systemlink-plugins-ni-labs
