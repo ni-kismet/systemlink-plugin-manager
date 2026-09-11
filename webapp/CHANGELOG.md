@@ -1,8 +1,17 @@
 # Change Log - systemlink-plugin-manager
 
-<!-- This log was last generated on Thu, 27 Aug 2026 15:51:19 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 11 Sep 2026 16:52:27 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 1.3.0
+
+Fri, 11 Sep 2026 16:52:27 GMT
+
+### Minor changes
+
+- `systemlink-plugin-manager`
+  - Remove ni-labs-welcome package (1458528+fredvisser@users.noreply.github.com)
 
 ## 1.2.4
 
