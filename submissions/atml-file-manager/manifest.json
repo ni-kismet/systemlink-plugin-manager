@@ -1,0 +1,8 @@
+{
+  "nipkgFile": "atml-file-manager_0.2.0_all.nipkg",
+  "releaseTag": "atml-file-manager-v0.2.0",
+  "schemaVersion": 2,
+  "sha256": "40e225b92a38115911bbf52debbcfbba2a92490595a0a5a292cc2d811d1e11e9",
+  "sourceCommit": "b6c007f205c1359e46c4449c2fb62a7800a530d9",
+  "sourceRepo": "ni-kismet/systemlink-plugins-ni-labs"
+}
