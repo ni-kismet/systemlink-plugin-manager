@@ -1,0 +1,8 @@
+{
+  "nipkgFile": "systemlink-usage-statistics_0.1.0_all.nipkg",
+  "releaseTag": "systemlink-usage-statistics-v0.1.0",
+  "schemaVersion": 2,
+  "sha256": "5645abd26f6018f26e2c926ff805d97ce27505158c73415b8b94ea2049c73488",
+  "sourceCommit": "b6c007f205c1359e46c4449c2fb62a7800a530d9",
+  "sourceRepo": "ni-kismet/systemlink-plugins-ni-labs"
+}
