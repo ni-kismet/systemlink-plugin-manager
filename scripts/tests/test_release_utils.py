@@ -67,12 +67,22 @@ class FakeGitHub:
         self.changed_inputs = False
         self.corrupt_upload = False
         self.corrupt_download = False
+        self.list_error = False
+        self.list_pages: list[list[dict]] | None = None
 
     def run(self, args, **kwargs):
         args = tuple(args)
         self.calls.append(args)
         if args[:2] == ("gh", "api"):
-            status = self.lookup_error or (200 if self.release is not None else 404)
+            if "--paginate" in args:
+                if self.list_error:
+                    return subprocess.CompletedProcess(args, 1, "", "HTTP 403")
+                pages = self.list_pages
+                if pages is None:
+                    pages = [[self.release] if self.release is not None else []]
+                return subprocess.CompletedProcess(args, 0, json.dumps(pages), "")
+            visible_by_tag = self.release is not None and not self.release["draft"]
+            status = self.lookup_error or (200 if visible_by_tag else 404)
             body = json.dumps(self.release or {"message": "Not Found"})
             return subprocess.CompletedProcess(
                 args, 0 if status == 200 else 1,
@@ -181,6 +191,22 @@ class ReleaseTests(unittest.TestCase):
         self.release["assets"] = []
         self.publish()
         self.assertEqual([call[2] for call in self.github.mutations()], ["edit", "upload", "edit"])
+
+    def test_draft_hidden_by_tag_is_found_in_paginated_list(self):
+        self.release["draft"] = True
+        self.github.list_pages = [
+            [{"tag_name": "unrelated-v1.0.0", "draft": False, "assets": []}],
+            [self.release],
+        ]
+        self.assertEqual(release_utils.get_release(REPOSITORY, TAG), self.release)
+        self.assertTrue(any("--paginate" in call for call in self.github.calls))
+
+    def test_list_error_after_tag_404_does_not_create_release(self):
+        self.github.release = None
+        self.github.list_error = True
+        with self.assertRaisesRegex(RuntimeError, "403"):
+            self.publish()
+        self.assertEqual(self.github.mutations(), [])
 
     def test_bad_upload_never_published(self):
         self.github.release = None

@@ -95,6 +95,8 @@ the published asset without modifying it. Different bytes under the same version
 or a missing asset in a published release, require a new package version. An
 interrupted draft can be resumed before publication. Authentication, rate-limit,
 and network errors fail the workflow rather than being treated as a missing release.
+Drafts are discovered through the authenticated, paginated releases list because
+GitHub's release-by-tag API excludes drafts.
 
 The index builder verifies that each destination release is published and its
 asset SHA256 matches the submission before writing either index file. This also

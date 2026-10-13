@@ -54,7 +54,17 @@ def get_release(repository: str, tag: str) -> dict | None:
     headers, separator, body = result.stdout.partition("\n\n")
     status = re.match(r"HTTP/\S+ (\d{3})", headers)
     if status and status.group(1) == "404":
-        return None
+        # GitHub's tag endpoint excludes drafts, even for authenticated writers.
+        pages = json.loads(run(
+            "gh", "api", "--paginate", "--slurp",
+            f"repos/{repository}/releases?per_page=100",
+        ))
+        matches = [
+            release for page in pages for release in page if release["tag_name"] == tag
+        ]
+        if len(matches) > 1:
+            raise ValueError(f"Multiple releases found for {repository}/{tag}")
+        return matches[0] if matches else None
     if result.returncode or not status or status.group(1) != "200" or not separator:
         raise RuntimeError(
             result.stderr.strip() or f"Failed to look up release {repository}/{tag}"
