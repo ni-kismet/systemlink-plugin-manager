@@ -1,8 +1,8 @@
 {
-  "nipkgFile": "node-license-management_0.1.0_all.nipkg",
-  "releaseTag": "node-license-management-v0.1.0",
+  "nipkgFile": "node-license-management_0.2.0_all.nipkg",
+  "releaseTag": "node-license-management-v0.2.0",
   "schemaVersion": 2,
-  "sha256": "ab9dfc410540ad83f35997818e087531bd84759fda343047bbcd53a8d43a1dfc",
-  "sourceCommit": "a4eec6da465a265475d92ce62ae14d1e49ac2a31",
+  "sha256": "97f7e79df49de34f791f76f1c0224f7802d0eabbfb3a163026768d0a5ebd065d",
+  "sourceCommit": "b6c007f205c1359e46c4449c2fb62a7800a530d9",
   "sourceRepo": "ni-kismet/systemlink-plugins-ni-labs"
 }
