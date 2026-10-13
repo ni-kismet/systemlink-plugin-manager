@@ -12,6 +12,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from release_utils import check_submission, destination_repository
 from submission_utils import (
     build_github_release_asset_url,
     download_file,
@@ -128,6 +129,10 @@ def create_submission_branch(
     version = metadata["version"]
     display_name = metadata["displayName"]
     nipkg_filename = manifest["nipkgFile"]
+
+    check_submission(
+        destination_repository(), f"{package}-v{version}", nipkg_filename, actual_sha256
+    )
 
     submission_dir = SUBMISSIONS_DIR / package
     submission_dir.mkdir(parents=True, exist_ok=True)

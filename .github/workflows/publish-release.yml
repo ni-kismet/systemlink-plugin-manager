@@ -55,6 +55,9 @@ jobs:
     needs: detect
     if: ${{ needs.detect.outputs.submissions != '[]' && needs.detect.outputs.submissions != '' }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-${{ github.repository }}-${{ matrix.submission }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
@@ -63,6 +66,10 @@ jobs:
       SUBMISSION_NAME: ${{ matrix.submission }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
       - name: Locate release artifact
         id: artifact
@@ -194,21 +201,18 @@ jobs:
           print(f"tag={metadata['package']}-v{metadata['version']}")
           PY
 
-      - name: Create GitHub Release
+      - name: Publish verified GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_PATH: ${{ steps.release_artifact.outputs.path }}
+          DISPLAY_NAME: ${{ steps.package_metadata.outputs.display_name }}
+          VERSION: ${{ steps.package_metadata.outputs.version }}
         run: |
-          if gh release view "${{ steps.package_metadata.outputs.tag }}" >/dev/null 2>&1; then
-            gh release upload "${{ steps.package_metadata.outputs.tag }}" \
-              "${{ steps.release_artifact.outputs.path }}" \
-              --clobber
-          else
-            gh release create "${{ steps.package_metadata.outputs.tag }}" \
-              "${{ steps.release_artifact.outputs.path }}" \
-              --title "${{ steps.package_metadata.outputs.display_name }} v${{ steps.package_metadata.outputs.version }}" \
-              --notes "Release of ${{ steps.package_metadata.outputs.display_name }} version ${{ steps.package_metadata.outputs.version }}" \
-              --latest=false
-          fi
+          python scripts/release_utils.py publish \
+            --artifact "$ARTIFACT_PATH" \
+            --manifest "submissions/${SUBMISSION_NAME}/manifest.json" \
+            --target "$GITHUB_SHA" \
+            --notes "Release of ${DISPLAY_NAME} version ${VERSION}"
 
       - name: Trigger index rebuild
         env:

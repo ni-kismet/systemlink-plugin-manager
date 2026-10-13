@@ -12,6 +12,8 @@ jobs:
   validate:
     name: Validate app submission
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -87,6 +89,7 @@ jobs:
           from pathlib import Path
 
           sys.path.insert(0, str(Path('scripts').resolve()))
+          from release_utils import check_submission, destination_repository
           from submission_utils import (
               MAX_NIPKG_SIZE_BYTES,
               extract_control_fields,
@@ -159,6 +162,17 @@ jobs:
                   )
                   continue
 
+              try:
+                  check_submission(
+                      destination_repository(),
+                      f"{metadata['package']}-v{metadata['version']}",
+                      manifest["nipkgFile"],
+                      actual_sha,
+                  )
+              except (RuntimeError, ValueError, OSError) as exc:
+                  errors.append(f'[{submission_dir.name}] {exc}')
+                  continue
+
               location = 'local' if local_nipkg is not None else 'remote'
               print(f'✓ {submission_dir}: validated {location} artifact {nipkg_path.name} ({size} bytes)')
 
@@ -170,4 +184,3 @@ jobs:
 
       - name: Run full validation
         run: python scripts/rebuild_index.py --validate-only
-
