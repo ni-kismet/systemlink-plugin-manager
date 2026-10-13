@@ -1,8 +1,8 @@
 {
-  "nipkgFile": "ni-labs-work-item-kanban-board_0.1.0_all.nipkg",
-  "releaseTag": "ni-labs-work-item-kanban-board-v0.1.0",
+  "nipkgFile": "ni-labs-work-item-kanban-board_0.3.0_all.nipkg",
+  "releaseTag": "ni-labs-work-item-kanban-board-v0.3.0",
   "schemaVersion": 2,
-  "sha256": "d576767a0f800507d06547921bbd6229e8c50624d3f74f4402fc92a44f7b7d97",
-  "sourceCommit": "aa85511bcbe911dd2bfd26937e544955d4618ca2",
+  "sha256": "8bba905ffb2ae83a144e1314995ca2dcd2e11ce08f0adfed5e00c79568bd078c",
+  "sourceCommit": "b6c007f205c1359e46c4449c2fb62a7800a530d9",
   "sourceRepo": "ni-kismet/systemlink-plugins-ni-labs"
 }

@@ -67,6 +67,7 @@ The CI pipeline will automatically:
 - Check for duplicate package names
 - Verify `.nipkg` file size is ≤ 100 MB
 - Validate that the package contains the required Plugin Manager metadata
+- Reject changed bytes or a missing asset for an already-published package/version
 
 ### 5. Maintainer review
 
@@ -81,12 +82,24 @@ A maintainer will:
 
 After merge, CI will:
 
-1. Attach the reviewed `.nipkg` to a GitHub Release in this repository
+1. Create a draft GitHub Release, upload and verify the reviewed `.nipkg`, then publish it
 2. Reuse the icon embedded in the `.nipkg` and base64-encode any submitted screenshots
 3. Regenerate the `Packages` index
 4. Deploy to GitHub Pages
 
 Your plugin will be available in the Plugin Manager the next time users refresh their feed.
+
+Published package versions are **write-once**, even in repositories where release
+immutability is not enabled. Retrying an identical submission verifies and reuses
+the published asset without modifying it. Different bytes under the same version,
+or a missing asset in a published release, require a new package version. An
+interrupted draft can be resumed before publication. Authentication, rate-limit,
+and network errors fail the workflow rather than being treated as a missing release.
+
+The index builder verifies that each destination release is published and its
+asset SHA256 matches the submission before writing either index file. This also
+applies to manual index rebuilds. If publication fails, fix the submission and
+publish it before rebuilding the index; do not bypass the checksum check.
 
 ## Requirements for submitted apps
 
@@ -140,9 +153,14 @@ Alternatively, you can manually create a `.nipkg` using NI Package Manager tools
 
 To release a new version:
 
-1. Build a new `.nipkg`
+1. Increment the version embedded in the package and build a new `.nipkg`
 2. Recompute the `sha256` in your thin `manifest.json`
 3. Submit a new Pull Request
+
+Do not rebuild or replace an already-published version. Package archives may
+contain timestamps, so rebuilding identical source can still produce different
+bytes. The Plugin Manager webapp publisher reuses the original released package
+on retries only when its committed manifest and build inputs match.
 
 ---
 

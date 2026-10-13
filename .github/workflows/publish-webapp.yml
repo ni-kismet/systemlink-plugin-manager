@@ -19,10 +19,17 @@ jobs:
   publish:
     name: Build and publish webapp
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-${{ github.repository }}-systemlink-plugin-manager
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
       - name: Configure git author
         run: |
@@ -88,8 +95,20 @@ jobs:
             git commit -m "chore: bump plugin manager to ${{ steps.version.outputs.version }} [skip ci]"
           fi
 
+      - name: Reuse published package on retry
+        id: reuse
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          python scripts/release_utils.py reuse-webapp \
+            --tag "$RELEASE_TAG" \
+            --output-dir webapp/dist/nipkg \
+            --manifest submissions/systemlink-plugin-manager/manifest.json
+
       - name: Package nipkg and submission manifest
-        id: package
+        if: steps.reuse.outputs.reused != 'true'
+        id: build_package
         run: |
           rm -rf dist/nipkg
           ./node_modules/.bin/sl-webapp-nipkg build \
@@ -110,6 +129,23 @@ jobs:
           echo "name=$(basename "$NIPKG")" >> "$GITHUB_OUTPUT"
         working-directory: webapp
 
+      - name: Select release package
+        id: package
+        env:
+          REUSED: ${{ steps.reuse.outputs.reused }}
+          REUSED_PATH: ${{ steps.reuse.outputs.path }}
+          REUSED_NAME: ${{ steps.reuse.outputs.name }}
+          BUILT_PATH: ${{ steps.build_package.outputs.path }}
+          BUILT_NAME: ${{ steps.build_package.outputs.name }}
+        run: |
+          if [ "$REUSED" = "true" ]; then
+            echo "path=$REUSED_PATH" >> "$GITHUB_OUTPUT"
+            echo "name=$REUSED_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=$BUILT_PATH" >> "$GITHUB_OUTPUT"
+            echo "name=$BUILT_NAME" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Commit generated submission manifest
         run: |
           git add submissions/systemlink-plugin-manager/manifest.json
@@ -122,12 +158,12 @@ jobs:
       - name: Push release commits
         run: bash scripts/git-push-with-retry.sh "${{ github.ref_name }}"
 
-      - name: Create or update GitHub Release
+      - name: Publish verified GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_PATH: ${{ steps.package.outputs.path }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          TAG="${{ steps.version.outputs.tag }}"
-          VERSION="${{ steps.version.outputs.version }}"
           CHANGELOG=$(awk -v version="$VERSION" '
             $0 == "## " version {
               in_section = 1
@@ -155,21 +191,12 @@ jobs:
           if [ -z "$CHANGELOG" ]; then
             CHANGELOG="Release of Plugin Manager for SystemLink version ${VERSION}"
           fi
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" \
-              "${{ steps.package.outputs.path }}" \
-              --clobber
-            gh release edit "$TAG" \
-              --latest \
-              --title "Plugin Manager for SystemLink v${VERSION}" \
-              --notes "$CHANGELOG"
-          else
-            gh release create "$TAG" \
-              "${{ steps.package.outputs.path }}" \
-              --title "Plugin Manager for SystemLink v${VERSION}" \
-              --notes "$CHANGELOG" \
-              --latest
-          fi
+          python scripts/release_utils.py publish \
+            --artifact "$ARTIFACT_PATH" \
+            --manifest submissions/systemlink-plugin-manager/manifest.json \
+            --target "$(git rev-parse HEAD)" \
+            --notes "$CHANGELOG" \
+            --latest
 
       - name: Trigger index rebuild
         env:

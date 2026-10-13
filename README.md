@@ -38,6 +38,16 @@ npm install
 ng serve
 ```
 
+To test release publishing and submission/index checksum safeguards locally:
+
+```bash
+python -m unittest discover -s scripts/tests -v
+```
+
+These tests use simulated GitHub responses and do not mutate releases. Running
+submission validation or an index rebuild requires the authenticated `gh` CLI
+(`GH_TOKEN` in CI). See [publication policy](CONTRIBUTING.md#6-publication).
+
 ## License
 
 MIT — see [LICENSE](LICENSE) for details (where present per package).
