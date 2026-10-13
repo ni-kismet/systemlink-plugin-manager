@@ -12,7 +12,9 @@ import os
 import sys
 import urllib.error
 from pathlib import Path
+from urllib.parse import urlparse
 
+from release_utils import check_submission, verify_published
 from submission_utils import (
     extract_control_fields,
     md5_file,
@@ -194,6 +196,10 @@ def main() -> int:
     args = parser.parse_args()
 
     repo_url = get_repo_url(args.repo_url)
+    parsed_repo_url = urlparse(repo_url)
+    if parsed_repo_url.scheme != "https" or parsed_repo_url.netloc != "github.com":
+        parser.error("--repo-url must be an https://github.com/owner/repository URL")
+    repository = parsed_repo_url.path.strip("/")
     if not SUBMISSIONS_DIR.is_dir():
         print("No submissions/ directory found. Creating empty Packages file.")
         PACKAGES_PATH.write_text("")
@@ -226,6 +232,15 @@ def main() -> int:
         seen_packages[package] = submission_dir.name
 
         assert nipkg_path is not None
+        try:
+            tag = f"{package}-v{metadata['version']}"
+            if args.validate_only:
+                check_submission(repository, tag, manifest["nipkgFile"], manifest["sha256"])
+            else:
+                verify_published(repository, tag, manifest["nipkgFile"], manifest["sha256"])
+        except (RuntimeError, ValueError, OSError) as exc:
+            all_errors.append(f"[{submission_dir.name}] {exc}")
+            continue
         stanzas.append(
             build_stanza(manifest, metadata, nipkg_path, repo_url, submission_dir)
         )
