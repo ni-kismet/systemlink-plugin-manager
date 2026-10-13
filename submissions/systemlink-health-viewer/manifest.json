@@ -1,8 +1,8 @@
 {
-  "nipkgFile": "systemlink-health-viewer_0.1.0_all.nipkg",
-  "releaseTag": "systemlink-health-viewer-v0.1.0",
+  "nipkgFile": "systemlink-health-viewer_0.2.0_all.nipkg",
+  "releaseTag": "systemlink-health-viewer-v0.2.0",
   "schemaVersion": 2,
-  "sha256": "6ce7da8df37c3a93fb10bd2d2803c17e602da7d74418db24e4d3cee7338d49e4",
-  "sourceCommit": "a4eec6da465a265475d92ce62ae14d1e49ac2a31",
+  "sha256": "c34bc3651ea7a2d8f5fdbb442b42b05ba6f50ef7935b3c0a9a402a0d977f54de",
+  "sourceCommit": "b6c007f205c1359e46c4449c2fb62a7800a530d9",
   "sourceRepo": "ni-kismet/systemlink-plugins-ni-labs"
 }
