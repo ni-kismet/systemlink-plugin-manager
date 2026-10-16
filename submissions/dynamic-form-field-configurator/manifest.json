@@ -1,7 +1,7 @@
 {
-  "nipkgFile": "dynamic-form-field-configurator_0.29.2_all.nipkg",
-  "releaseTag": "dynamic-form-field-configurator_v0.29.2",
+  "nipkgFile": "dynamic-form-field-configurator_0.29.6_all.nipkg",
+  "releaseTag": "dynamic-form-field-configurator_v0.29.6",
   "schemaVersion": 2,
-  "sha256": "5ccf3b88396b5cd01853bd829829eff3510aa9e72fc5f0aa75ca8c4b61416ebd",
+  "sha256": "2520d310da1224ea086b56d77fea19d9fe2e2b635f6cbc967607a935c835c988",
   "sourceRepo": "ni-kismet/systemlink-plugins-ni-labs"
 }
