@@ -3,6 +3,5 @@
   "releaseTag": "node-license-management-v0.2.0",
   "schemaVersion": 2,
   "sha256": "97f7e79df49de34f791f76f1c0224f7802d0eabbfb3a163026768d0a5ebd065d",
-  "sourceCommit": "b6c007f205c1359e46c4449c2fb62a7800a530d9",
   "sourceRepo": "ni-kismet/systemlink-plugins-ni-labs"
 }
