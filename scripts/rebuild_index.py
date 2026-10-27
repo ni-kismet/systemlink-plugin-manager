@@ -20,6 +20,7 @@ from submission_utils import (
     md5_file,
     metadata_from_control_fields,
     resolve_submission_nipkg,
+    resolve_submission_screenshot,
     sha256_file,
     validate_nipkg_archive,
     validate_package_metadata,
@@ -167,8 +168,8 @@ def build_stanza(
         ]
 
     for index, screenshot in enumerate(manifest.get("screenshots", []), start=1):
-        screenshot_path = submission_dir / screenshot
-        if screenshot_path.is_file():
+        screenshot_path = resolve_submission_screenshot(submission_dir, screenshot)
+        if screenshot_path is not None and screenshot_path.is_file():
             attrs[f"XB-SlPluginManagerScreenshot{index}"] = base64_encode_file(
                 screenshot_path
             )

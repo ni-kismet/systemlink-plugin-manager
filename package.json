@@ -11,6 +11,6 @@
     "bump": "beachball bump"
   },
   "devDependencies": {
-    "beachball": "^2.63.1"
+    "beachball": "^2.66.0"
   }
 }

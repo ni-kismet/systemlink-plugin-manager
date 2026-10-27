@@ -23,4 +23,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Test write-once release publishing
-        run: python -m unittest discover -s scripts/tests -v
+        run: |
+          python -m unittest discover -s scripts/tests -v
+          python scripts/test_submission_utils.py
