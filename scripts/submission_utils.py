@@ -125,11 +125,27 @@ def validate_submission_manifest(manifest: dict[str, Any], submission_dir: Path)
         errors.append(f"[{submission_name}] screenshots may contain at most {MAX_SCREENSHOTS} items")
 
     for screenshot in screenshots:
-        screenshot_path = submission_dir / screenshot
-        if not screenshot_path.is_file():
+        screenshot_path = resolve_submission_screenshot(submission_dir, screenshot)
+        if screenshot_path is None:
+            errors.append(
+                f"[{submission_name}] screenshot must stay within the submission directory: {screenshot!r}"
+            )
+        elif not screenshot_path.is_file():
             errors.append(f"[{submission_name}] screenshot does not exist: {screenshot!r}")
 
     return errors
+
+
+def resolve_submission_screenshot(
+    submission_dir: Path, screenshot: str
+) -> Path | None:
+    submission_root = submission_dir.resolve()
+    screenshot_path = (submission_root / screenshot).resolve()
+    try:
+        screenshot_path.relative_to(submission_root)
+    except ValueError:
+        return None
+    return screenshot_path
 
 
 def resolve_submission_nipkg(
@@ -322,8 +338,13 @@ def validate_package_metadata(
             f"[{submission_name}] Invalid xbPlugin: {plugin_type!r} (allowed: {VALID_TYPES})"
         )
 
-    if not metadata.get("displayName"):
+    display_name = metadata.get("displayName", "")
+    if not display_name:
         errors.append(f"[{submission_name}] Package metadata is missing 'XB-DisplayName'")
+    elif any(ord(character) < 32 or ord(character) == 127 for character in display_name):
+        errors.append(
+            f"[{submission_name}] 'XB-DisplayName' must not contain control characters"
+        )
 
     if not metadata.get("maintainer"):
         errors.append(f"[{submission_name}] Package metadata is missing 'Maintainer'")

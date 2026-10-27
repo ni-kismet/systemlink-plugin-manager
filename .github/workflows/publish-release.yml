@@ -23,7 +23,7 @@ jobs:
     outputs:
       submissions: ${{ steps.detect.outputs.submissions }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -65,15 +65,16 @@ jobs:
     env:
       SUBMISSION_NAME: ${{ matrix.submission }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
       - name: Locate release artifact
         id: artifact
         run: |
+          [[ "$SUBMISSION_NAME" =~ ^[A-Za-z0-9._-]+$ && "$SUBMISSION_NAME" != "." && "$SUBMISSION_NAME" != ".." ]] || { echo "✗ Invalid submission name: $SUBMISSION_NAME" >&2; exit 1; }
           DIR="submissions/${SUBMISSION_NAME}"
           if [ ! -f "$DIR/manifest.json" ]; then
             echo "✗ No manifest.json found in $DIR" >&2
@@ -81,6 +82,7 @@ jobs:
           fi
 
           EXPLICIT=$(jq -r '.nipkgFile' "$DIR/manifest.json")
+          [[ "$EXPLICIT" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.nipkg$ ]] || { echo "✗ Invalid nipkgFile: $EXPLICIT" >&2; exit 1; }
           SOURCE_REPO=$(jq -r '.sourceRepo // empty' "$DIR/manifest.json")
           RELEASE_TAG=$(jq -r '.releaseTag // empty' "$DIR/manifest.json")
           FOUND=""
@@ -112,18 +114,21 @@ jobs:
         if: steps.artifact.outputs.download_remote == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.artifact.outputs.release_tag }}
+          SOURCE_REPO: ${{ steps.artifact.outputs.source_repo }}
+          ARTIFACT_NAME: ${{ steps.artifact.outputs.name }}
         run: |
           DEST_DIR="downloaded-artifacts/${SUBMISSION_NAME}"
           mkdir -p "$DEST_DIR"
-          gh release download "${{ steps.artifact.outputs.release_tag }}" \
-            --repo "${{ steps.artifact.outputs.source_repo }}" \
-            --pattern "${{ steps.artifact.outputs.name }}" \
+          gh release download "$RELEASE_TAG" \
+            --repo "$SOURCE_REPO" \
+            --pattern "$ARTIFACT_NAME" \
             --dir "$DEST_DIR"
-          echo "path=$DEST_DIR/${{ steps.artifact.outputs.name }}" >> "$GITHUB_OUTPUT"
-          echo "name=${{ steps.artifact.outputs.name }}" >> "$GITHUB_OUTPUT"
+          echo "path=$DEST_DIR/$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+          echo "name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
         id: download_artifact
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.artifact.outputs.build_webapp == 'true'
         with:
           node-version: '22'
@@ -160,22 +165,33 @@ jobs:
 
       - name: Select release artifact
         id: release_artifact
+        env:
+          BUILD_WEBAPP: ${{ steps.artifact.outputs.build_webapp }}
+          DOWNLOAD_REMOTE: ${{ steps.artifact.outputs.download_remote }}
+          BUILT_PATH: ${{ steps.build_nipkg.outputs.path }}
+          BUILT_NAME: ${{ steps.build_nipkg.outputs.name }}
+          DOWNLOADED_PATH: ${{ steps.download_artifact.outputs.path }}
+          DOWNLOADED_NAME: ${{ steps.download_artifact.outputs.name }}
+          LOCAL_PATH: ${{ steps.artifact.outputs.path }}
+          LOCAL_NAME: ${{ steps.artifact.outputs.name }}
         run: |
-          if [ "${{ steps.artifact.outputs.build_webapp }}" = "true" ]; then
-            echo "path=${{ steps.build_nipkg.outputs.path }}" >> "$GITHUB_OUTPUT"
-            echo "name=${{ steps.build_nipkg.outputs.name }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ steps.artifact.outputs.download_remote }}" = "true" ]; then
-            echo "path=${{ steps.download_artifact.outputs.path }}" >> "$GITHUB_OUTPUT"
-            echo "name=${{ steps.download_artifact.outputs.name }}" >> "$GITHUB_OUTPUT"
+          if [ "$BUILD_WEBAPP" = "true" ]; then
+            echo "path=$BUILT_PATH" >> "$GITHUB_OUTPUT"
+            echo "name=$BUILT_NAME" >> "$GITHUB_OUTPUT"
+          elif [ "$DOWNLOAD_REMOTE" = "true" ]; then
+            echo "path=$DOWNLOADED_PATH" >> "$GITHUB_OUTPUT"
+            echo "name=$DOWNLOADED_NAME" >> "$GITHUB_OUTPUT"
           else
-            echo "path=${{ steps.artifact.outputs.path }}" >> "$GITHUB_OUTPUT"
-            echo "name=${{ steps.artifact.outputs.name }}" >> "$GITHUB_OUTPUT"
+            echo "path=$LOCAL_PATH" >> "$GITHUB_OUTPUT"
+            echo "name=$LOCAL_NAME" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Verify release artifact hash
+        env:
+          RELEASE_ARTIFACT_PATH: ${{ steps.release_artifact.outputs.path }}
         run: |
           EXPECTED_SHA=$(jq -r '.sha256' "submissions/${SUBMISSION_NAME}/manifest.json")
-          ACTUAL_SHA=$(shasum -a 256 "${{ steps.release_artifact.outputs.path }}" | awk '{print $1}')
+          ACTUAL_SHA=$(shasum -a 256 "$RELEASE_ARTIFACT_PATH" | awk '{print $1}')
           if [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
             echo "✗ Release artifact sha256 does not match manifest.json" >&2
             exit 1
@@ -183,22 +199,35 @@ jobs:
 
       - name: Read package metadata
         id: package_metadata
+        env:
+          RELEASE_ARTIFACT_PATH: ${{ steps.release_artifact.outputs.path }}
         run: |
           python - <<'PY' >> "$GITHUB_OUTPUT"
+          import os
           from pathlib import Path
           import sys
 
           sys.path.insert(0, str(Path('scripts').resolve()))
-          from submission_utils import extract_control_fields, metadata_from_control_fields
+          from submission_utils import (
+              extract_control_fields,
+              metadata_from_control_fields,
+              validate_package_metadata,
+          )
 
-          artifact = Path("${{ steps.release_artifact.outputs.path }}")
+          artifact = Path(os.environ["RELEASE_ARTIFACT_PATH"])
           control_fields = extract_control_fields(artifact)
           metadata = metadata_from_control_fields(control_fields)
+          errors = validate_package_metadata(
+              metadata,
+              artifact.parent.name,
+              require_embedded_icon=True,
+          )
+          if errors:
+              raise ValueError("\n".join(errors))
 
           print(f"package={metadata['package']}")
           print(f"version={metadata['version']}")
           print(f"display_name={metadata['displayName']}")
-          print(f"tag={metadata['package']}-v{metadata['version']}")
           PY
 
       - name: Publish verified GitHub Release
