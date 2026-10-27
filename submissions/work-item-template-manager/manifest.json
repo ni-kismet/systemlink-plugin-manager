@@ -1,0 +1,8 @@
+{
+  "nipkgFile": "work-item-template-manager_0.1.0_all.nipkg",
+  "releaseTag": "work-item-template-manager-v0.1.0",
+  "schemaVersion": 2,
+  "sha256": "b647f54cb025f7df7e7509caea3ce8af7178a9a2ba319144614ed75ad79aa72e",
+  "sourceCommit": "60a41f214d1e45e722da5dcb7686b495f90eb375",
+  "sourceRepo": "ni-kismet/systemlink-plugins-ni-labs"
+}
