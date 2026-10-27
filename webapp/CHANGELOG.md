@@ -1,8 +1,17 @@
 # Change Log - systemlink-plugin-manager
 
-<!-- This log was last generated on Fri, 11 Sep 2026 16:52:27 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 27 Oct 2026 20:08:04 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 1.3.1
+
+Tue, 27 Oct 2026 20:08:04 GMT
+
+### Patches
+
+- `systemlink-plugin-manager`
+  - Harden submission validation and update security dependencies (1458528+fredvisser@users.noreply.github.com)
 
 ## 1.3.0
 
