@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "nipkgFile": "systemlink-user-metrics_1.0.0_all.nipkg",
-  "sha256": "b5b67da27a66beba4e3236ff39bf6220c1306dfd00df21658c2819d7607e3003",
-  "screenshots": ["screenshot1.png"]
+  "nipkgFile": "systemlink-user-metrics_1.0.1_all.nipkg",
+  "sha256": "76a02a32cf24275f32f01b07027de35a2a2a8e44f8bc47980bd9926bc0817c4c"
 }
+
