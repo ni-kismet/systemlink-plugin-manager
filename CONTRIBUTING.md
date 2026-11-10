@@ -112,7 +112,7 @@ publish it before rebuilding the index; do not bypass the checksum check.
 | Package metadata | The `.nipkg` must contain `Section`, `XB-Plugin`, `Maintainer`, `XB-SlPluginManagerLicense`, `XB-DisplayName`, and `XB-SlPluginManagerIcon`    |
 | Content          | `.nipkg` must contain a valid webapp (`index.html` at root) or notebook (`.ipynb`)                                                             |
 | CSP              | No external network calls outside SystemLink's own APIs                                                                                        |
-| Icon             | Must be embedded in the `.nipkg` as `XB-SlPluginManagerIcon`                                                                                   |
+| Icon             | `XB-SlPluginManagerIcon` must contain a nonempty base64-encoded SVG or PNG data URI (`data:image/svg+xml;base64,...` or `data:image/png;base64,...`), not a filename or URL |
 | Description      | ≥ 20 characters                                                                                                                                |
 | License          | Must be embedded in the package metadata (SPDX identifier or "Proprietary")                                                                    |
 | Checksums        | SHA256 must match `.nipkg` contents                                                                                                            |

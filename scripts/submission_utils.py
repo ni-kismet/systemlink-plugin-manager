@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import io
 import re
@@ -354,9 +356,24 @@ def validate_package_metadata(
             f"[{submission_name}] Package metadata is missing 'XB-SlPluginManagerLicense'"
         )
 
-    if require_embedded_icon and not metadata.get("embeddedIcon"):
+    icon = metadata.get("embeddedIcon", "")
+    if require_embedded_icon and not icon:
         errors.append(
             f"[{submission_name}] Thin manifests require XB-SlPluginManagerIcon in the .nipkg control metadata"
         )
+    elif icon:
+        header, _, payload = icon.partition(",")
+        try:
+            valid_icon = header in {
+                "data:image/svg+xml;base64",
+                "data:image/png;base64",
+            } and bool(base64.b64decode(payload, validate=True))
+        except (binascii.Error, ValueError):
+            valid_icon = False
+        if not valid_icon:
+            errors.append(
+                f"[{submission_name}] XB-SlPluginManagerIcon must be a base64-encoded SVG or PNG data URI "
+                "(data:image/svg+xml;base64,... or data:image/png;base64,...), not a filename or URL"
+            )
 
     return errors
