@@ -112,17 +112,12 @@ Additional metadata fields for rich catalog browsing. These also use the `XB-` p
 
 | Control File Field                   | Attribute Key (Feed Service)      | Purpose                                                                                                                                               | Example                            |
 | ------------------------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `XB-SlPluginManagerScreenshot1`      | `SlPluginManagerScreenshot1`      | **Base64-encoded** screenshot image (PNG, max 800x600). **Max 3 screenshots** per plugin (`SlPluginManagerScreenshot1`–`SlPluginManagerScreenshot3`). | `data:image/png;base64,iVBOR...`   |
-| `XB-SlPluginManagerScreenshot2`      | `SlPluginManagerScreenshot2`      | Second screenshot (optional)                                                                                                                          | `data:image/png;base64,...`        |
-| `XB-SlPluginManagerScreenshot3`      | `SlPluginManagerScreenshot3`      | Third screenshot (optional)                                                                                                                           | `data:image/png;base64,...`        |
 | `XB-SlPluginManagerIcon`             | `SlPluginManagerIcon`             | **Base64-encoded** plugin icon (SVG or PNG, max 128x128)                                                                                              | `data:image/svg+xml;base64,PH...`  |
 | `XB-SlPluginManagerMinServerVersion` | `SlPluginManagerMinServerVersion` | Minimum SystemLink server version                                                                                                                     | `2024 Q4`                          |
 | `XB-SlPluginManagerTags`             | `SlPluginManagerTags`             | Comma-separated search tags (mirrors `Tags` for attribute-only consumers)                                                                             | `assets,calibration,dashboard`     |
 | `XB-SlPluginManagerLicense`          | `SlPluginManagerLicense`          | License identifier (required)                                                                                                                         | `MIT`, `Apache-2.0`, `Proprietary` |
 
-> **Why base64?** CSP prevents the webapp from loading images from external origins (GitHub). Base64-encoding icons and screenshots directly in the package `attributes` ensures they survive feed replication and are available to the webapp via the Feed Service API without any external requests. This does increase the `Packages` file size (several megabytes is acceptable), but keeps the architecture simple and CSP-compliant.
->
-> **Screenshots are capped at 3 per app** to limit `Packages` file growth. The compressed `Packages.gz` should be used by default for feed replication to reduce bandwidth.
+> **Why base64?** Small icons are embedded directly in package attributes so they are available without external image requests.
 >
 > **First-class vs. attributes**: The Feed Service automatically maps standard nipkg control fields (`Package`, `Version`, `Description`, `Section`, `Maintainer`, `Homepage`, `Tags`) to first-class `metadata` properties. Consumers (webapp, CLI) should prefer reading from the first-class properties. Fields that don't have a first-class mapping (`XB-DisplayName`, `XB-SlPluginManager*`) go into `metadata.attributes` (unprefixed) and must be read from there.
 
@@ -135,8 +130,7 @@ systemlink-plugin-manager/
 ├── submissions/                      # PR staging area for new/updated apps
 │   └── mycompany-asset-dashboard/
 │       ├── manifest.json             # Thin submission manifest (artifact path + SHA + optional source release)
-│       ├── mycompany-asset-dashboard_1.0.0_all.nipkg
-│       └── screenshot.png            # Optional screenshot (base64-encoded into attributes)
+│       └── mycompany-asset-dashboard_1.0.0_all.nipkg
 ├── CONTRIBUTING.md                   # How to submit an app (see §6)
 ├── app-manifest.schema.json          # JSON Schema for manifest.json validation
 └── .github/
@@ -183,7 +177,7 @@ For the CLI, `slcli plugin-manager feed add` writes the feed ID returned by the 
 | View                 | Description                                                                                                                                                          |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Catalog / Browse** | Grid or card layout of available apps. Filter by category, search by name/description/tags. Show icon, name, author, short description, version, and install status. |
-| **App Detail**       | Full description, screenshots, version history, author info, dependencies, install/upgrade/uninstall actions.                                                        |
+| **App Detail**       | Full description, version history, author info, dependencies, install/upgrade/uninstall actions.                                                        |
 | **Installed**        | List of apps currently installed on this SystemLink instance. Show current version vs. latest available. Upgrade-all button.                                         |
 | **Settings**         | Configure feed source URL, replication schedule, workspace targeting.                                                                                                |
 
@@ -218,7 +212,7 @@ If permissions are missing, display a `<nimble-banner severity="warning">` expla
 5. Filters packages to `UserVisible: yes` and `Plugin: webapp`
 6. Collapses multiple feed entries with the same `Package` name to the latest semantic version so the catalog shows one card per app
 7. Renders card grid with base64-decoded icon, name, author, description, version
-8. User clicks card → detail drawer/page with full info, base64-decoded screenshot
+8. User clicks card → detail drawer/page with full info
 9. User clicks "Install" → choose target workspace(s) → for each workspace:
    a. Download `.nipkg` from feed via `getNifeedV1FeedsByFeedIdFilesByFileName()`
    b. Create a new webapp in two steps:
@@ -457,7 +451,7 @@ Installed plugin metadata (per-workspace webapp IDs, versions, timestamps) is st
 | **Formula / Cask** — a Ruby file describing how to install                   | A stanza in the `Packages` file + the reviewed `.nipkg` artifact                                          |
 | **`brew tap`** — register a third-party tap                                  | `slcli plugin-manager feed add <URL>` — register a new feed source                                        |
 | **`brew install`** — install from default or tapped repo                     | `slcli plugin-manager install <name>`                                                                     |
-| **PR-based submission** — contributors submit a PR adding/updating a formula | Contributors submit a PR with a thin `manifest.json`, the reviewed `.nipkg`, and any optional screenshots |
+| **PR-based submission** — contributors submit a PR adding/updating a formula | Contributors submit a PR with a thin `manifest.json` and the reviewed `.nipkg` |
 | **CI validation** — `brew audit`, `brew test` on PR                          | GitHub Actions validates package metadata, checksums, structure                                           |
 
 ### 6.2 Submission workflow
@@ -474,7 +468,6 @@ Developer                                GitHub Repo                          Ma
        │ Generates:
        │  - .nipkg file
        │  - submissions/my-app/manifest.json (thin manifest with nipkgFile + sha256)
-       │  - optional screenshots for review
        │  - ready-to-commit branch
   │ Alternative for source repos using sl-webapp-nipkg directly:
   │  `sl-webapp-nipkg build --config nipkg.config.json --output-dir dist/nipkg --manifest`
@@ -501,7 +494,7 @@ Developer                                GitHub Repo                          Ma
                                              ▼
                                       7. CI on merge:
                                          - Attach .nipkg to GitHub Release
-                                         - Base64-encode icon + screenshot
+                                         - Reuse embedded icon
                                          - Regenerate Packages index
                                          - Deploy to GitHub Pages
                                          - (Optional: sign Packages with GPG)
@@ -657,7 +650,7 @@ Both the webapp and CLI may update a webapp's properties. Use optimistic concurr
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------- |
 | Malicious packages       | Curated PR-based review with functional testing and security audit; CI scans                                        |
 | Supply-chain integrity   | SHA256 checksums verified on install; OpenPGP signing of `Packages` index (when key available)                      |
-| CSP compliance           | Webapp only calls same-origin APIs; no external fetches. Icons/screenshots are base64-encoded in package attributes |
+| CSP compliance           | Webapp only calls same-origin APIs; no external fetches. Small icons are base64-encoded in package attributes |
 | Authorization            | Install/uninstall require Web Application create/modify/delete permissions; webapp checks on launch                 |
 | Private feeds            | Organizations can host internal feeds behind VPN/auth; feed URL supports Basic Auth                                 |
 | Package content scanning | CI workflow runs static analysis on `.nipkg` contents; reject packages with suspicious scripts                      |
@@ -694,7 +687,7 @@ The following questions were raised during initial requirements drafting and hav
 | 8   | Dependency resolution            | **Not required** initially. Keep it simple. `Depends` field is informational only                                                                                                                                                                                          |
 | 9   | Multi-workspace                  | **Supported.** Install flow allows choosing one or more workspaces; can add/remove workspaces later                                                                                                                                                                        |
 | 10  | Feed ID discovery                | **From config cache.** Feed ID stored in `~/.config/slcli/plugin-manager.json` at `feed add` time. No name-based Feed Service scan. Webapp reads from its own `slPluginManager.feeds` property.                                                                            |
-| 11  | Screenshots / icons              | **Icon embedded in the `.nipkg`; screenshots base64-encoded in `Packages` attributes.** Max **3 screenshots** per app. `Packages.gz` for bandwidth. Survives replication, no external requests needed                                                                      |
+| 11  | Icons                            | **Icon embedded in the `.nipkg`** and included in generated feed indexes. |
 | 12  | Install permissions              | **Existing Web Application permissions** apply. Webapp checks permissions on launch and shows guidance                                                                                                                                                                     |
 | 13  | Ratings / reviews                | **No.** Not in scope                                                                                                                                                                                                                                                       |
 | 14  | Publishing model                 | **Curated.** Submissions require functional testing and security audit by maintainers                                                                                                                                                                                      |
@@ -704,7 +697,7 @@ The following questions were raised during initial requirements drafting and hav
 | 18  | Commercial apps                  | **Future consideration.** Start with free/open-source; may support paid apps later                                                                                                                                                                                         |
 | 19  | CLI GitHub access                | **Yes.** `slcli plugin-manager` supports `--source github` to browse/install directly from GitHub for dev/testing                                                                                                                                                          |
 | 20  | CI/CD integration                | **Yes.** `slcli plugin-manager publish --prepare-pr` generates a ready-to-commit branch                                                                                                                                                                                    |
-| 21  | Packages file size with base64   | **Acceptable.** Several megabytes is fine. Cap screenshots at 3 per app and keep the icon embedded in the `.nipkg`. Use `Packages.gz` for feed replication                                                                                                                 |
+| 21  | Packages file size with base64   | **Keep metadata small.** Embed small icons. Use `Packages.gz` for feed replication. |
 | 22  | Feed replication frequency       | **Manual.** Feed refresh is not automatic. Users trigger via "Refresh Feed" button in webapp or `slcli plugin-manager feed refresh` CLI command                                                                                                                            |
 | 23  | `.nipkg` extraction in browser   | **Not needed.** The WebApp Service accepts `.nipkg` files directly via `updateContent()`. No browser-side or server-side extraction required                                                                                                                               |
 | 24  | WebApp Service API for install   | **Use `#web-application` client.** `createWebapp()` + `updateContent(id, nipkgBlob)` for install; `updateContent()` for upgrade; `deleteWebapp()` for uninstall                                                                                                            |
@@ -734,7 +727,7 @@ Remaining questions that need further investigation:
 
 - Define `app-manifest.schema.json` — JSON Schema for submission `manifest.json` files
 - Set up repository structure: `submissions/`, `Packages`, `Packages.gz`, `CONTRIBUTING.md`
-- Build `scripts/rebuild_index.py` — regenerate `Packages` / `Packages.gz` from submissions and GitHub Release assets, reuse the embedded icon, and base64-encode screenshots
+- Build `scripts/rebuild_index.py` — regenerate `Packages` / `Packages.gz` from submissions and GitHub Release assets and reuse the embedded icon
 - GitHub Actions: `validate-submission.yml` — PR validation (lint manifest against schema, verify SHA256, inspect package metadata, check size ≤ 100 MB, check no duplicate package names)
 - GitHub Actions: `accept-submission.yml` — accept cross-repo submission payloads and open a PR from the reviewed artifact
 - GitHub Actions: `publish-release.yml` — attach `.nipkg` to GitHub Release, trigger index rebuild
@@ -753,7 +746,7 @@ Remaining questions that need further investigation:
 
 - Build the Plugin Manager Angular webapp using `@ni/systemlink-clients-ts` (`#feeds`, `#web-application`, `#file-ingestion`)
   - Catalog browse view with card grid (base64 icons rendered inline)
-  - App detail view with base64 screenshots (max 3 per app)
+  - App detail view with package metadata and installation actions
   - Installed apps view with upgrade detection (semver comparison, cross-workspace query)
   - Settings view (feed refresh button, workspace selection)
 - Implement onboarding wizard for first-time setup (feed replication from GitHub, feed config saved to webapp properties) — see §4.6

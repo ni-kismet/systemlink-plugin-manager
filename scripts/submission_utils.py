@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import io
 import re
@@ -20,7 +22,6 @@ SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 GITHUB_REPO_PATTERN = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
 VALID_TYPES = {"webapp", "notebook", "dashboard", "routine", "bundle"}
 THIN_MANIFEST_SCHEMA_VERSION = 2
-MAX_SCREENSHOTS = 3
 MAX_NIPKG_SIZE_BYTES = 100 * 1024 * 1024
 
 CONTROL_TO_METADATA_KEY = {
@@ -120,32 +121,7 @@ def validate_submission_manifest(manifest: dict[str, Any], submission_dir: Path)
             f"[{submission_name}] submission must include the .nipkg locally or provide sourceRepo and releaseTag"
         )
 
-    screenshots = manifest.get("screenshots", [])
-    if len(screenshots) > MAX_SCREENSHOTS:
-        errors.append(f"[{submission_name}] screenshots may contain at most {MAX_SCREENSHOTS} items")
-
-    for screenshot in screenshots:
-        screenshot_path = resolve_submission_screenshot(submission_dir, screenshot)
-        if screenshot_path is None:
-            errors.append(
-                f"[{submission_name}] screenshot must stay within the submission directory: {screenshot!r}"
-            )
-        elif not screenshot_path.is_file():
-            errors.append(f"[{submission_name}] screenshot does not exist: {screenshot!r}")
-
     return errors
-
-
-def resolve_submission_screenshot(
-    submission_dir: Path, screenshot: str
-) -> Path | None:
-    submission_root = submission_dir.resolve()
-    screenshot_path = (submission_root / screenshot).resolve()
-    try:
-        screenshot_path.relative_to(submission_root)
-    except ValueError:
-        return None
-    return screenshot_path
 
 
 def resolve_submission_nipkg(
@@ -307,6 +283,7 @@ def validate_package_metadata(
     submission_name: str,
     *,
     require_embedded_icon: bool,
+    allow_legacy_icon: bool = False,
 ) -> list[str]:
     errors: list[str] = []
 
@@ -354,9 +331,24 @@ def validate_package_metadata(
             f"[{submission_name}] Package metadata is missing 'XB-SlPluginManagerLicense'"
         )
 
-    if require_embedded_icon and not metadata.get("embeddedIcon"):
+    icon = metadata.get("embeddedIcon", "")
+    if require_embedded_icon and not icon:
         errors.append(
             f"[{submission_name}] Thin manifests require XB-SlPluginManagerIcon in the .nipkg control metadata"
         )
+    elif icon and not allow_legacy_icon:
+        header, _, payload = icon.partition(",")
+        try:
+            valid_icon = header in {
+                "data:image/svg+xml;base64",
+                "data:image/png;base64",
+            } and bool(base64.b64decode(payload, validate=True))
+        except (binascii.Error, ValueError):
+            valid_icon = False
+        if not valid_icon:
+            errors.append(
+                f"[{submission_name}] XB-SlPluginManagerIcon must be a base64-encoded SVG or PNG data URI "
+                "(data:image/svg+xml;base64,... or data:image/png;base64,...), not a filename or URL"
+            )
 
     return errors

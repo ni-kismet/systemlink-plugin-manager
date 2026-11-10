@@ -200,6 +200,7 @@ jobs:
       - name: Read package metadata
         id: package_metadata
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_ARTIFACT_PATH: ${{ steps.release_artifact.outputs.path }}
         run: |
           python - <<'PY' >> "$GITHUB_OUTPUT"
@@ -208,19 +209,17 @@ jobs:
           import sys
 
           sys.path.insert(0, str(Path('scripts').resolve()))
+          from release_utils import destination_repository, validate_artifact_metadata
           from submission_utils import (
               extract_control_fields,
               metadata_from_control_fields,
-              validate_package_metadata,
           )
 
           artifact = Path(os.environ["RELEASE_ARTIFACT_PATH"])
           control_fields = extract_control_fields(artifact)
           metadata = metadata_from_control_fields(control_fields)
-          errors = validate_package_metadata(
-              metadata,
-              artifact.parent.name,
-              require_embedded_icon=True,
+          errors = validate_artifact_metadata(
+              destination_repository(), artifact, metadata
           )
           if errors:
               raise ValueError("\n".join(errors))

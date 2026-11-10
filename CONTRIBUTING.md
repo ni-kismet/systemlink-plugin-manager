@@ -12,7 +12,6 @@ The Plugin Manager uses a **curated, PR-based submission process** inspired by H
 - The webapp packaged as a `.nipkg` file (see [Packaging your app](#packaging-your-app))
 - Either the `.nipkg` stored in your submission directory or a GitHub release containing that exact `.nipkg`
 - Package metadata embedded in the `.nipkg` control file, including `XB-DisplayName`, `XB-Plugin`, `XB-SlPluginManagerLicense`, and `XB-SlPluginManagerIcon`
-- Optionally, up to 3 screenshots (PNG, max 800×600 px) stored next to the submission manifest
 
 ## Submission process
 
@@ -23,8 +22,6 @@ Create a directory under `submissions/` with your package name:
 ```
 submissions/my-awesome-dashboard/
 ├── manifest.json           # Thin submission manifest (artifact path + hash)
-├── screenshot1.png         # Screenshot (optional, max 3)
-├── screenshot2.png         # Screenshot (optional)
 └── my-awesome-dashboard_1.0.0_all.nipkg
 ```
 
@@ -43,8 +40,7 @@ Minimal example:
   "sha256": "7b7f5d9c2d6e4d6f8d89b3a5b1f7dbe4b9f6b61f4c3b98b1e2f8d0a4c6d8e1f2",
   "sourceRepo": "yourorg/my-awesome-dashboard",
   "releaseTag": "my-awesome-dashboard-v1.0.0",
-  "sourceCommit": "0123456789abcdef0123456789abcdef01234567",
-  "screenshots": ["screenshot1.png"]
+  "sourceCommit": "0123456789abcdef0123456789abcdef01234567"
 }
 ```
 
@@ -83,7 +79,7 @@ A maintainer will:
 After merge, CI will:
 
 1. Create a draft GitHub Release, upload and verify the reviewed `.nipkg`, then publish it
-2. Reuse the icon embedded in the `.nipkg` and base64-encode any submitted screenshots
+2. Reuse the icon embedded in the `.nipkg`
 3. Regenerate the `Packages` index
 4. Deploy to GitHub Pages
 
@@ -97,6 +93,11 @@ interrupted draft can be resumed before publication. Authentication, rate-limit,
 and network errors fail the workflow rather than being treated as a missing release.
 Drafts are discovered through the authenticated, paginated releases list because
 GitHub's release-by-tag API excludes drafts.
+
+Legacy icon metadata is tolerated only for exact package bytes already published
+in an immutable destination release, verified by SHA256 with an explicit warning.
+New versions must provide a valid embedded SVG/PNG data URI. Other metadata,
+archive, and integrity checks still apply to existing packages.
 
 The index builder verifies that each destination release is published and its
 asset SHA256 matches the submission before writing either index file. This also
@@ -112,7 +113,7 @@ publish it before rebuilding the index; do not bypass the checksum check.
 | Package metadata | The `.nipkg` must contain `Section`, `XB-Plugin`, `Maintainer`, `XB-SlPluginManagerLicense`, `XB-DisplayName`, and `XB-SlPluginManagerIcon`    |
 | Content          | `.nipkg` must contain a valid webapp (`index.html` at root) or notebook (`.ipynb`)                                                             |
 | CSP              | No external network calls outside SystemLink's own APIs                                                                                        |
-| Icon             | Must be embedded in the `.nipkg` as `XB-SlPluginManagerIcon`                                                                                   |
+| Icon             | `XB-SlPluginManagerIcon` must contain a nonempty base64-encoded SVG or PNG data URI (`data:image/svg+xml;base64,...` or `data:image/png;base64,...`), not a filename or URL |
 | Description      | ≥ 20 characters                                                                                                                                |
 | License          | Must be embedded in the package metadata (SPDX identifier or "Proprietary")                                                                    |
 | Checksums        | SHA256 must match `.nipkg` contents                                                                                                            |

@@ -123,6 +123,29 @@ def verify_published(
     verify_asset(repository, release, name, expected_sha)
 
 
+def validate_artifact_metadata(
+    repository: str, artifact: Path, metadata: dict[str, str]
+) -> list[str]:
+    errors = validate_package_metadata(metadata, artifact.name, require_embedded_icon=True)
+    if not errors or validate_package_metadata(
+        metadata, artifact.name, require_embedded_icon=True, allow_legacy_icon=True
+    ):
+        return errors
+
+    tag = f"{metadata['package']}-v{metadata['version']}"
+    release = get_release(repository, tag)
+    if release is None or release["draft"] or not release.get("immutable"):
+        return errors
+
+    verify_asset(repository, release, artifact.name, sha256_file(artifact))
+    print(
+        f"Warning: {repository}/{tag}: retaining an unchanged, verified immutable "
+        "artifact with legacy icon metadata. New package versions must embed an SVG/PNG data URI.",
+        file=sys.stderr,
+    )
+    return []
+
+
 def publish(
     repository: str,
     artifact: Path,
@@ -139,7 +162,7 @@ def publish(
     if expected_sha != manifest["sha256"]:
         raise ValueError("Release artifact SHA256 does not match manifest.json")
     metadata = metadata_from_control_fields(extract_control_fields(artifact))
-    errors = validate_package_metadata(metadata, artifact.name, require_embedded_icon=True)
+    errors = validate_artifact_metadata(repository, artifact, metadata)
     if errors:
         raise ValueError("; ".join(errors))
     tag = f"{metadata['package']}-v{metadata['version']}"
