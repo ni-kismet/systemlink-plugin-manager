@@ -12,7 +12,6 @@ The Plugin Manager uses a **curated, PR-based submission process** inspired by H
 - The webapp packaged as a `.nipkg` file (see [Packaging your app](#packaging-your-app))
 - Either the `.nipkg` stored in your submission directory or a GitHub release containing that exact `.nipkg`
 - Package metadata embedded in the `.nipkg` control file, including `XB-DisplayName`, `XB-Plugin`, `XB-SlPluginManagerLicense`, and `XB-SlPluginManagerIcon`
-- Optionally, up to 3 screenshots (PNG, max 800×600 px) stored next to the submission manifest
 
 ## Submission process
 
@@ -23,8 +22,6 @@ Create a directory under `submissions/` with your package name:
 ```
 submissions/my-awesome-dashboard/
 ├── manifest.json           # Thin submission manifest (artifact path + hash)
-├── screenshot1.png         # Screenshot (optional, max 3)
-├── screenshot2.png         # Screenshot (optional)
 └── my-awesome-dashboard_1.0.0_all.nipkg
 ```
 
@@ -43,8 +40,7 @@ Minimal example:
   "sha256": "7b7f5d9c2d6e4d6f8d89b3a5b1f7dbe4b9f6b61f4c3b98b1e2f8d0a4c6d8e1f2",
   "sourceRepo": "yourorg/my-awesome-dashboard",
   "releaseTag": "my-awesome-dashboard-v1.0.0",
-  "sourceCommit": "0123456789abcdef0123456789abcdef01234567",
-  "screenshots": ["screenshot1.png"]
+  "sourceCommit": "0123456789abcdef0123456789abcdef01234567"
 }
 ```
 
@@ -83,7 +79,7 @@ A maintainer will:
 After merge, CI will:
 
 1. Create a draft GitHub Release, upload and verify the reviewed `.nipkg`, then publish it
-2. Reuse the icon embedded in the `.nipkg` and base64-encode any submitted screenshots
+2. Reuse the icon embedded in the `.nipkg`
 3. Regenerate the `Packages` index
 4. Deploy to GitHub Pages
 

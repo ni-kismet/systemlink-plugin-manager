@@ -40,16 +40,6 @@
       "type": "string",
       "pattern": "^[0-9a-f]{40}$",
       "description": "Optional source commit SHA for the build that produced the submitted .nipkg."
-    },
-    "screenshots": {
-      "type": "array",
-      "description": "Optional review and catalog screenshots stored alongside the manifest. These are not canonical package metadata.",
-      "maxItems": 3,
-      "items": {
-        "type": "string",
-        "minLength": 1
-      },
-      "uniqueItems": true
     }
   },
   "allOf": [

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import gzip
 import io
 import json
 import os
@@ -407,6 +408,24 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertIn(f"SHA256: {self.sha}", packages.read_text())
         self.assertIn(f"/releases/download/{TAG}/{NAME}", packages.read_text())
+
+    def test_index_ignores_legacy_screenshot_declarations(self):
+        self.manifest["screenshots"] = ["preview.png"]
+        status, packages, compressed = self.run_index()
+        self.assertEqual(status, 0)
+        content = packages.read_text()
+        self.assertNotIn("Screenshot", content)
+        self.assertNotIn("preview.png", content)
+        self.assertIn("XB-SlPluginManagerIcon: data:image/svg+xml;base64,PHN2Zy8+", content)
+        self.assertEqual(gzip.decompress(compressed.read_bytes()).decode(), content)
+
+    def test_submission_schema_excludes_screenshots(self):
+        schema = json.loads(submit_package.SCHEMA_PATH.read_text())
+        self.assertNotIn("screenshots", schema["properties"])
+        self.assertFalse(schema["additionalProperties"])
+        for path in submit_package.SUBMISSIONS_DIR.glob("*/manifest.json"):
+            manifest = json.loads(path.read_text())
+            self.assertLessEqual(set(manifest), set(schema["properties"]), str(path))
 
 
 if __name__ == "__main__":

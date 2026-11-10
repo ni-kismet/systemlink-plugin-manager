@@ -47,8 +47,7 @@ Recommended minimal shape:
   "sha256": "7b7f5d9c2d6e4d6f8d89b3a5b1f7dbe4b9f6b61f4c3b98b1e2f8d0a4c6d8e1f2",
   "sourceRepo": "yourorg/your-repo",
   "releaseTag": "my-plugin-v1.2.3",
-  "sourceCommit": "0123456789abcdef0123456789abcdef01234567",
-  "screenshots": ["screenshot1.png", "screenshot2.png"]
+  "sourceCommit": "0123456789abcdef0123456789abcdef01234567"
 }
 ```
 
@@ -66,7 +65,6 @@ Strongly recommended fields:
 
 Optional fields:
 
-- `screenshots`
 - future provenance fields such as an attestation, SBOM, or reviewer notes
 
 ### What still belongs outside the package
@@ -76,7 +74,6 @@ The submission manifest should keep only data that the `.nipkg` should not be re
 - artifact location within the submission directory (`nipkgFile`)
 - integrity binding for the reviewed artifact (`sha256`)
 - publication provenance (`sourceRepo`, `releaseTag`, `sourceCommit`)
-- review-only assets such as screenshots if they are not embedded in the package
 - optional supply-chain artifacts such as attestations or SBOM references
 
 This gives the review process a stable object to validate without forcing metadata drift between the submission JSON and the package control file.
@@ -86,7 +83,7 @@ This gives the review process a stable object to validate without forcing metada
 To make this work, the repository needs to stop treating `manifest.json` as the canonical metadata source.
 
 1. `scripts/rebuild_index.py` should extract control metadata directly from the `.nipkg`.
-  It should read the package control file and derive `Package`, `Version`, `Description`, `Section`, `Maintainer`, `Homepage`, `XB-DisplayName`, `XB-Plugin`, and `XB-SlPluginManager*` fields from the archive itself. The submission manifest should only provide the artifact path, integrity hash, and any review-only assets such as screenshots.
+  It should read the package control file and derive `Package`, `Version`, `Description`, `Section`, `Maintainer`, `Homepage`, `XB-DisplayName`, `XB-Plugin`, and `XB-SlPluginManager*` fields from the archive itself. The submission manifest should only provide the artifact path, integrity hash, and provenance.
 
 2. `.github/workflows/validate-submission.yml` should validate the submitted artifact, not duplicate JSON.
   The workflow should verify that `sha256` matches the referenced `.nipkg`, inspect the archive structure, extract control metadata, and validate that the package contains the required Plugin Manager metadata. Schema validation should move from package metadata fields to the thin submission manifest fields.
@@ -124,8 +121,7 @@ Required fields are:
   "sha256": "7b7f5d9c2d6e4d6f8d89b3a5b1f7dbe4b9f6b61f4c3b98b1e2f8d0a4c6d8e1f2",
   "sourceRepo": "yourorg/my-plugin",
   "releaseTag": "my-plugin-v1.2.3",
-  "sourceCommit": "0123456789abcdef0123456789abcdef01234567",
-  "screenshots": ["screenshot1.png"]
+  "sourceCommit": "0123456789abcdef0123456789abcdef01234567"
 }
 ```
 
@@ -140,7 +136,6 @@ Optional fields:
 - `sourceRepo`
 - `releaseTag`
 - `sourceCommit`
-- `screenshots`
 
 ### Canonical package metadata source
 
@@ -153,8 +148,6 @@ Expected behavior:
 - `submit_package.py` derives package name, version, and display name from the `.nipkg`
 - `publish-release.yml` names releases from the `.nipkg`
 - `XB-SlPluginManagerIcon` must be embedded in the package; it is no longer referenced through `iconFile` in the submission manifest
-
-Screenshots remain optional review-side assets stored next to the submission manifest.
 
 ## Field migration from the old App Store contract
 
@@ -368,7 +361,7 @@ That means:
 
 The packager should not derive `XB-Plugin` from `section`.
 
-### Icon and screenshots
+### Icon
 
 The packager should embed `XB-SlPluginManagerIcon` into the `.nipkg` using `iconFile`.
 

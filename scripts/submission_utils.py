@@ -22,7 +22,6 @@ SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 GITHUB_REPO_PATTERN = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
 VALID_TYPES = {"webapp", "notebook", "dashboard", "routine", "bundle"}
 THIN_MANIFEST_SCHEMA_VERSION = 2
-MAX_SCREENSHOTS = 3
 MAX_NIPKG_SIZE_BYTES = 100 * 1024 * 1024
 
 CONTROL_TO_METADATA_KEY = {
@@ -122,32 +121,7 @@ def validate_submission_manifest(manifest: dict[str, Any], submission_dir: Path)
             f"[{submission_name}] submission must include the .nipkg locally or provide sourceRepo and releaseTag"
         )
 
-    screenshots = manifest.get("screenshots", [])
-    if len(screenshots) > MAX_SCREENSHOTS:
-        errors.append(f"[{submission_name}] screenshots may contain at most {MAX_SCREENSHOTS} items")
-
-    for screenshot in screenshots:
-        screenshot_path = resolve_submission_screenshot(submission_dir, screenshot)
-        if screenshot_path is None:
-            errors.append(
-                f"[{submission_name}] screenshot must stay within the submission directory: {screenshot!r}"
-            )
-        elif not screenshot_path.is_file():
-            errors.append(f"[{submission_name}] screenshot does not exist: {screenshot!r}")
-
     return errors
-
-
-def resolve_submission_screenshot(
-    submission_dir: Path, screenshot: str
-) -> Path | None:
-    submission_root = submission_dir.resolve()
-    screenshot_path = (submission_root / screenshot).resolve()
-    try:
-        screenshot_path.relative_to(submission_root)
-    except ValueError:
-        return None
-    return screenshot_path
 
 
 def resolve_submission_nipkg(
