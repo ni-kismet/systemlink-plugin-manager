@@ -12,14 +12,13 @@ import sys
 import tempfile
 from pathlib import Path
 
-from release_utils import check_submission, destination_repository
+from release_utils import check_submission, destination_repository, validate_artifact_metadata
 from submission_utils import (
     build_github_release_asset_url,
     download_file,
     extract_control_fields,
     metadata_from_control_fields,
     sha256_file,
-    validate_package_metadata,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -117,10 +116,8 @@ def create_submission_branch(
 
     control_fields = extract_control_fields(nipkg_path)
     metadata = metadata_from_control_fields(control_fields)
-    errors = validate_package_metadata(
-        metadata,
-        nipkg_path.name,
-        require_embedded_icon=True,
+    errors = validate_artifact_metadata(
+        destination_repository(), nipkg_path, metadata
     )
     if errors:
         raise ValueError("; ".join(errors))

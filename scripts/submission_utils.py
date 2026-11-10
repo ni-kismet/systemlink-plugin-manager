@@ -283,6 +283,7 @@ def validate_package_metadata(
     submission_name: str,
     *,
     require_embedded_icon: bool,
+    allow_legacy_icon: bool = False,
 ) -> list[str]:
     errors: list[str] = []
 
@@ -335,7 +336,7 @@ def validate_package_metadata(
         errors.append(
             f"[{submission_name}] Thin manifests require XB-SlPluginManagerIcon in the .nipkg control metadata"
         )
-    elif icon:
+    elif icon and not allow_legacy_icon:
         header, _, payload = icon.partition(",")
         try:
             valid_icon = header in {

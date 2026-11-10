@@ -12,7 +12,7 @@ import urllib.error
 from pathlib import Path
 from urllib.parse import urlparse
 
-from release_utils import check_submission, verify_published
+from release_utils import check_submission, validate_artifact_metadata, verify_published
 from submission_utils import (
     extract_control_fields,
     md5_file,
@@ -20,7 +20,6 @@ from submission_utils import (
     resolve_submission_nipkg,
     sha256_file,
     validate_nipkg_archive,
-    validate_package_metadata,
     validate_submission_manifest,
 )
 
@@ -96,10 +95,8 @@ def load_submission(
         control_fields = extract_control_fields(nipkg_path)
         metadata = metadata_from_control_fields(control_fields)
         errors.extend(
-            validate_package_metadata(
-                metadata,
-                submission_dir.name,
-                require_embedded_icon=True,
+            validate_artifact_metadata(
+                urlparse(repo_url).path.strip("/"), nipkg_path, metadata
             )
         )
         return manifest, metadata, nipkg_path, errors

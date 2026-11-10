@@ -89,7 +89,7 @@ jobs:
           from pathlib import Path
 
           sys.path.insert(0, str(Path('scripts').resolve()))
-          from release_utils import check_submission, destination_repository
+          from release_utils import check_submission, destination_repository, validate_artifact_metadata
           from submission_utils import (
               MAX_NIPKG_SIZE_BYTES,
               extract_control_fields,
@@ -98,7 +98,6 @@ jobs:
               resolve_submission_nipkg,
               sha256_file,
               validate_nipkg_archive,
-              validate_package_metadata,
           )
 
           dirs = os.environ.get('CHANGED_DIRS', '').strip().splitlines()
@@ -146,10 +145,8 @@ jobs:
                   errors.append(f'[{submission_dir.name}] {exc}')
                   continue
 
-              metadata_errors = validate_package_metadata(
-                  metadata,
-                  submission_dir.name,
-                  require_embedded_icon=True,
+              metadata_errors = validate_artifact_metadata(
+                  destination_repository(), nipkg_path, metadata
               )
               if metadata_errors:
                   errors.extend(metadata_errors)

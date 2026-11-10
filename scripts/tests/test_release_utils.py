@@ -27,14 +27,14 @@ SOURCE_COMMIT = "a" * 40
 REAL_SUBPROCESS_RUN = subprocess.run
 
 
-def make_package(path: Path) -> None:
+def make_package(path: Path, icon: str = "data:image/svg+xml;base64,PHN2Zy8+") -> None:
     control = (
         "Package: test-app\nVersion: 1.0.0\n"
         "XB-DisplayName: Test App\n"
         "Description: A test package for release verification\n"
         "Section: Utilities\nMaintainer: Test Maintainer\n"
         "XB-Plugin: webapp\nXB-SlPluginManagerLicense: MIT\n"
-        "XB-SlPluginManagerIcon: data:image/svg+xml;base64,PHN2Zy8+\n"
+        f"XB-SlPluginManagerIcon: {icon}\n"
     ).encode()
     members = {"debian-binary": b"2.0\n"}
     for name, contents in (("control", control), ("index.html", b"<html></html>")):
@@ -148,6 +148,58 @@ class ReleaseTests(unittest.TestCase):
 
     def publish(self):
         release_utils.publish(REPOSITORY, self.artifact, self.manifest, SOURCE_COMMIT, "Notes", False)
+
+    def legacy_icon_metadata(self):
+        make_package(self.artifact, icon="icon.svg")
+        self.sha = sha256_file(self.artifact)
+        self.manifest["sha256"] = self.sha
+        self.release["assets"][0]["digest"] = f"sha256:{self.sha}"
+        return metadata_from_control_fields(extract_control_fields(self.artifact))
+
+    def test_verified_immutable_legacy_icon_is_retained_with_warning(self):
+        metadata = self.legacy_icon_metadata()
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            errors = release_utils.validate_artifact_metadata(REPOSITORY, self.artifact, metadata)
+            self.publish()
+        self.assertEqual(errors, [])
+        self.assertIn("legacy icon metadata", stderr.getvalue())
+        self.assertEqual(self.github.mutations(), [])
+
+    def test_new_draft_and_mutable_legacy_icons_are_rejected(self):
+        metadata = self.legacy_icon_metadata()
+        for release in (
+            None,
+            {**self.release, "draft": True},
+            {**self.release, "immutable": False},
+        ):
+            with self.subTest(release=release):
+                self.github.release = release
+                self.assertTrue(release_utils.validate_artifact_metadata(
+                    REPOSITORY, self.artifact, metadata,
+                ))
+        self.assertEqual(self.github.mutations(), [])
+
+    def test_legacy_icon_exception_rejects_changed_bytes(self):
+        metadata = self.legacy_icon_metadata()
+        self.release["assets"][0]["digest"] = "sha256:" + "0" * 64
+        with self.assertRaisesRegex(ValueError, "new package version"):
+            release_utils.validate_artifact_metadata(REPOSITORY, self.artifact, metadata)
+
+    def test_legacy_icon_does_not_exempt_other_metadata_errors(self):
+        metadata = self.legacy_icon_metadata()
+        for changes in ({"displayName": ""}, {"embeddedIcon": ""}, {"version": "bad"}):
+            with self.subTest(changes=changes):
+                self.assertTrue(release_utils.validate_artifact_metadata(
+                    REPOSITORY, self.artifact, {**metadata, **changes},
+                ))
+        self.assertEqual(self.github.calls, [])
+
+    def test_legacy_icon_lookup_failure_is_not_ignored(self):
+        metadata = self.legacy_icon_metadata()
+        self.github.lookup_error = 403
+        with self.assertRaisesRegex(RuntimeError, "403"):
+            release_utils.validate_artifact_metadata(REPOSITORY, self.artifact, metadata)
 
     def test_identical_published_retry_never_mutates_release(self):
         self.publish()

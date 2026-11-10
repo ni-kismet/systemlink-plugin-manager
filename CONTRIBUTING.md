@@ -94,6 +94,11 @@ and network errors fail the workflow rather than being treated as a missing rele
 Drafts are discovered through the authenticated, paginated releases list because
 GitHub's release-by-tag API excludes drafts.
 
+Legacy icon metadata is tolerated only for exact package bytes already published
+in an immutable destination release, verified by SHA256 with an explicit warning.
+New versions must provide a valid embedded SVG/PNG data URI. Other metadata,
+archive, and integrity checks still apply to existing packages.
+
 The index builder verifies that each destination release is published and its
 asset SHA256 matches the submission before writing either index file. This also
 applies to manual index rebuilds. If publication fails, fix the submission and
