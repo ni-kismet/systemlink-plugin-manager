@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -200,6 +201,32 @@ class ReleaseTests(unittest.TestCase):
         self.github.lookup_error = 403
         with self.assertRaisesRegex(RuntimeError, "403"):
             release_utils.validate_artifact_metadata(REPOSITORY, self.artifact, metadata)
+
+    def test_publication_metadata_step_uses_verified_legacy_policy(self):
+        self.legacy_icon_metadata()
+        workflow = (submit_package.REPO_ROOT / ".github/workflows/publish-release.yml").read_text()
+        step = workflow.split("      - name: Read package metadata\n", 1)[1].split(
+            "\n      - name:", 1
+        )[0]
+        self.assertIn("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}", step)
+        script = textwrap.dedent(
+            step.split("python - <<'PY' >> \"$GITHUB_OUTPUT\"\n", 1)[1].split(
+                "\n          PY", 1
+            )[0]
+        )
+        output = io.StringIO()
+        with (
+            patch.dict(os.environ, {"RELEASE_ARTIFACT_PATH": str(self.artifact)}),
+            contextlib.redirect_stdout(output),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            exec(compile(script, "publication-metadata-step", "exec"), {})
+            self.github.release = None
+            with self.assertRaisesRegex(ValueError, "base64-encoded"):
+                exec(compile(script, "publication-metadata-step", "exec"), {})
+        self.assertIn("package=test-app\n", output.getvalue())
+        self.assertIn("version=1.0.0\n", output.getvalue())
+        self.assertEqual(self.github.mutations(), [])
 
     def test_identical_published_retry_never_mutates_release(self):
         self.publish()
