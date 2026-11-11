@@ -4,26 +4,22 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import gzip
 import json
-import mimetypes
 import os
 import sys
 import urllib.error
 from pathlib import Path
 from urllib.parse import urlparse
 
-from release_utils import check_submission, verify_published
+from release_utils import check_submission, validate_artifact_metadata, verify_published
 from submission_utils import (
     extract_control_fields,
     md5_file,
     metadata_from_control_fields,
     resolve_submission_nipkg,
-    resolve_submission_screenshot,
     sha256_file,
     validate_nipkg_archive,
-    validate_package_metadata,
     validate_submission_manifest,
 )
 
@@ -31,20 +27,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SUBMISSIONS_DIR = REPO_ROOT / "submissions"
 PACKAGES_PATH = REPO_ROOT / "Packages"
 PACKAGES_GZ_PATH = REPO_ROOT / "Packages.gz"
-MAX_SCREENSHOTS = 3
-
-
-def base64_encode_file(path: Path) -> str:
-    mime, _ = mimetypes.guess_type(str(path))
-    if mime is None:
-        mime = (
-            "image/svg+xml"
-            if path.suffix.lower() == ".svg"
-            else "application/octet-stream"
-        )
-    with open(path, "rb") as stream:
-        encoded = base64.b64encode(stream.read()).decode("ascii")
-    return f"data:{mime};base64,{encoded}"
 
 
 def get_repo_url(args_repo_url: str | None) -> str:
@@ -113,10 +95,8 @@ def load_submission(
         control_fields = extract_control_fields(nipkg_path)
         metadata = metadata_from_control_fields(control_fields)
         errors.extend(
-            validate_package_metadata(
-                metadata,
-                submission_dir.name,
-                require_embedded_icon=True,
+            validate_artifact_metadata(
+                urlparse(repo_url).path.strip("/"), nipkg_path, metadata
             )
         )
         return manifest, metadata, nipkg_path, errors
@@ -166,13 +146,6 @@ def build_stanza(
         attrs["XB-SlPluginManagerMinServerVersion"] = metadata[
             "slPluginManagerMinServerVersion"
         ]
-
-    for index, screenshot in enumerate(manifest.get("screenshots", []), start=1):
-        screenshot_path = resolve_submission_screenshot(submission_dir, screenshot)
-        if screenshot_path is not None and screenshot_path.is_file():
-            attrs[f"XB-SlPluginManagerScreenshot{index}"] = base64_encode_file(
-                screenshot_path
-            )
 
     for key, value in sorted(attrs.items()):
         if value:

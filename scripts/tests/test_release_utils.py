@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import gzip
 import io
 import json
 import os
@@ -8,6 +9,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -26,14 +28,14 @@ SOURCE_COMMIT = "a" * 40
 REAL_SUBPROCESS_RUN = subprocess.run
 
 
-def make_package(path: Path) -> None:
+def make_package(path: Path, icon: str = "data:image/svg+xml;base64,PHN2Zy8+") -> None:
     control = (
         "Package: test-app\nVersion: 1.0.0\n"
         "XB-DisplayName: Test App\n"
         "Description: A test package for release verification\n"
         "Section: Utilities\nMaintainer: Test Maintainer\n"
         "XB-Plugin: webapp\nXB-SlPluginManagerLicense: MIT\n"
-        "XB-SlPluginManagerIcon: data:image/svg+xml;base64,PHN2Zy8+\n"
+        f"XB-SlPluginManagerIcon: {icon}\n"
     ).encode()
     members = {"debian-binary": b"2.0\n"}
     for name, contents in (("control", control), ("index.html", b"<html></html>")):
@@ -147,6 +149,84 @@ class ReleaseTests(unittest.TestCase):
 
     def publish(self):
         release_utils.publish(REPOSITORY, self.artifact, self.manifest, SOURCE_COMMIT, "Notes", False)
+
+    def legacy_icon_metadata(self):
+        make_package(self.artifact, icon="icon.svg")
+        self.sha = sha256_file(self.artifact)
+        self.manifest["sha256"] = self.sha
+        self.release["assets"][0]["digest"] = f"sha256:{self.sha}"
+        return metadata_from_control_fields(extract_control_fields(self.artifact))
+
+    def test_verified_immutable_legacy_icon_is_retained_with_warning(self):
+        metadata = self.legacy_icon_metadata()
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            errors = release_utils.validate_artifact_metadata(REPOSITORY, self.artifact, metadata)
+            self.publish()
+        self.assertEqual(errors, [])
+        self.assertIn("legacy icon metadata", stderr.getvalue())
+        self.assertEqual(self.github.mutations(), [])
+
+    def test_new_draft_and_mutable_legacy_icons_are_rejected(self):
+        metadata = self.legacy_icon_metadata()
+        for release in (
+            None,
+            {**self.release, "draft": True},
+            {**self.release, "immutable": False},
+        ):
+            with self.subTest(release=release):
+                self.github.release = release
+                self.assertTrue(release_utils.validate_artifact_metadata(
+                    REPOSITORY, self.artifact, metadata,
+                ))
+        self.assertEqual(self.github.mutations(), [])
+
+    def test_legacy_icon_exception_rejects_changed_bytes(self):
+        metadata = self.legacy_icon_metadata()
+        self.release["assets"][0]["digest"] = "sha256:" + "0" * 64
+        with self.assertRaisesRegex(ValueError, "new package version"):
+            release_utils.validate_artifact_metadata(REPOSITORY, self.artifact, metadata)
+
+    def test_legacy_icon_does_not_exempt_other_metadata_errors(self):
+        metadata = self.legacy_icon_metadata()
+        for changes in ({"displayName": ""}, {"embeddedIcon": ""}, {"version": "bad"}):
+            with self.subTest(changes=changes):
+                self.assertTrue(release_utils.validate_artifact_metadata(
+                    REPOSITORY, self.artifact, {**metadata, **changes},
+                ))
+        self.assertEqual(self.github.calls, [])
+
+    def test_legacy_icon_lookup_failure_is_not_ignored(self):
+        metadata = self.legacy_icon_metadata()
+        self.github.lookup_error = 403
+        with self.assertRaisesRegex(RuntimeError, "403"):
+            release_utils.validate_artifact_metadata(REPOSITORY, self.artifact, metadata)
+
+    def test_publication_metadata_step_uses_verified_legacy_policy(self):
+        self.legacy_icon_metadata()
+        workflow = (submit_package.REPO_ROOT / ".github/workflows/publish-release.yml").read_text()
+        step = workflow.split("      - name: Read package metadata\n", 1)[1].split(
+            "\n      - name:", 1
+        )[0]
+        self.assertIn("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}", step)
+        script = textwrap.dedent(
+            step.split("python - <<'PY' >> \"$GITHUB_OUTPUT\"\n", 1)[1].split(
+                "\n          PY", 1
+            )[0]
+        )
+        output = io.StringIO()
+        with (
+            patch.dict(os.environ, {"RELEASE_ARTIFACT_PATH": str(self.artifact)}),
+            contextlib.redirect_stdout(output),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            exec(compile(script, "publication-metadata-step", "exec"), {})
+            self.github.release = None
+            with self.assertRaisesRegex(ValueError, "base64-encoded"):
+                exec(compile(script, "publication-metadata-step", "exec"), {})
+        self.assertIn("package=test-app\n", output.getvalue())
+        self.assertIn("version=1.0.0\n", output.getvalue())
+        self.assertEqual(self.github.mutations(), [])
 
     def test_identical_published_retry_never_mutates_release(self):
         self.publish()
@@ -407,6 +487,24 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertIn(f"SHA256: {self.sha}", packages.read_text())
         self.assertIn(f"/releases/download/{TAG}/{NAME}", packages.read_text())
+
+    def test_index_ignores_legacy_screenshot_declarations(self):
+        self.manifest["screenshots"] = ["preview.png"]
+        status, packages, compressed = self.run_index()
+        self.assertEqual(status, 0)
+        content = packages.read_text()
+        self.assertNotIn("Screenshot", content)
+        self.assertNotIn("preview.png", content)
+        self.assertIn("XB-SlPluginManagerIcon: data:image/svg+xml;base64,PHN2Zy8+", content)
+        self.assertEqual(gzip.decompress(compressed.read_bytes()).decode(), content)
+
+    def test_submission_schema_excludes_screenshots(self):
+        schema = json.loads(submit_package.SCHEMA_PATH.read_text())
+        self.assertNotIn("screenshots", schema["properties"])
+        self.assertFalse(schema["additionalProperties"])
+        for path in submit_package.SUBMISSIONS_DIR.glob("*/manifest.json"):
+            manifest = json.loads(path.read_text())
+            self.assertLessEqual(set(manifest), set(schema["properties"]), str(path))
 
 
 if __name__ == "__main__":
