@@ -160,19 +160,19 @@ XB-UserVisible: yes
 
 Architecture: all
 Description: Shows how many Standard and Collaborator licensed users are active on SystemLink each month, with simple monthly bar charts. Combine data from multiple instances into one consolidated view for software licensing and compliance reporting.
-Filename: https://github.com/ni-kismet/systemlink-plugin-manager/releases/download/systemlink-user-metrics-v1.0.0/systemlink-user-metrics_1.0.0_all.nipkg
+Filename: https://github.com/ni-kismet/systemlink-plugin-manager/releases/download/systemlink-user-metrics-v1.0.1/systemlink-user-metrics_1.0.1_all.nipkg
 Homepage: 
-MD5sum: 85aabfab5d5fde796df1721675dd70a2
+MD5sum: 7f7fcac3bc8c41f0741a6f6ab374dca3
 Maintainer: Joey Martinez <joey.martinez@emerson.com>
 Package: systemlink-user-metrics
 Section: Analytics
-SHA256: b5b67da27a66beba4e3236ff39bf6220c1306dfd00df21658c2819d7607e3003
-Size: 663278
-Version: 1.0.0
+SHA256: 76a02a32cf24275f32f01b07027de35a2a2a8e44f8bc47980bd9926bc0817c4c
+Size: 666036
+Version: 1.0.1
 XB-DisplayName: SystemLink User Metrics
-XB-DisplayVersion: 1.0.0
+XB-DisplayVersion: 1.0.1
 XB-Plugin: webapp
-XB-SlPluginManagerIcon: icon.svg
+XB-SlPluginManagerIcon: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4Ij4KICA8cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSI4IiBmaWxsPSIjMWE3M2U4Ii8+CiAgPGcgZmlsbD0iI2ZmZmZmZiI+CiAgICA8Y2lyY2xlIGN4PSIxNiIgY3k9IjE1IiByPSI1IiBvcGFjaXR5PSIwLjY1Ii8+CiAgICA8cGF0aCBkPSJNNiw0MSBRNiwyNSAxNiwyNSBRMjYsMjUgMjYsNDEgWiIgb3BhY2l0eT0iMC42NSIvPgogICAgPGNpcmNsZSBjeD0iMzEiIGN5PSIxNyIgcj0iNiIvPgogICAgPHBhdGggZD0iTTE4LDQ0IFExOCwyNyAzMSwyNyBRNDQsMjcgNDQsNDQgWiIvPgogIDwvZz4KPC9zdmc+Cgo=
 XB-SlPluginManagerLicense: MIT
 XB-UserVisible: yes
 
